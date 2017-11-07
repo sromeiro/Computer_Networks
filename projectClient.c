@@ -30,12 +30,13 @@
 //=  History: (10/26/17) - Genesis (from udpClient.c)                    =
 //=============================================================================
 
-#define  WIN                // WIN for Winsock and BSD for BSD sockets
+#define  BSD                // WIN for Winsock and BSD for BSD sockets
 
 //----- Include files ---------------------------------------------------------
 #include <stdio.h>          // Needed for printf()
 #include <string.h>         // Needed for memcpy() and strcpy()
 #include <stdlib.h>         // Needed for exit()
+#include <string.h>         // Neede for handling strings
 
 #ifdef WIN                  // If Win
   #include <windows.h>      // Needed for all Winsock stuff

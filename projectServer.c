@@ -30,12 +30,13 @@
 //=  History: (10/26/17) - Genesis (from udpServer.c)                         =
 //=============================================================================
 
-#define  WIN                // WIN for Winsock and BSD for BSD sockets
+#define  BSD                // WIN for Winsock and BSD for BSD sockets
 
 //----- Include files ---------------------------------------------------------
 #include <stdio.h>          // Needed for printf()
 #include <string.h>         // Needed for memcpy() and strcpy()
 #include <stdlib.h>         // Needed for exit()
+#include <string.h>         // Needed to handle strings
 
 #ifdef WIN                  // If Win
   #include <windows.h>      // Needed for all Winsock stuff
@@ -67,6 +68,7 @@ int main()
     WORD wVersionRequested = MAKEWORD(1,1);       // Stuff for WSA functions
     WSADATA wsaData;                              // Stuff for WSA functions
   #endif
+
     int                  welcome_s;       // Welcome socket descriptor
     struct sockaddr_in   server_addr;     // Server Internet address
     int                  connect_s;       // Connection socket descriptor
@@ -76,12 +78,20 @@ int main()
     char                 out_buf[4096];   // Output buffer for data
     char                 in_buf[4096];    // Input buffer for data
     int                  retcode;         // Return code
+    FILE                 *fileName;
 
   #ifdef WIN
     // This stuff initializes winsock
     WSAStartup(wVersionRequested, &wsaData);
   #endif
 
+  fileName = "test.txt";
+  if(fileName == NULL)
+  {
+    //Show error if file could not be opened
+    fprintf(stderr, "Could not open \"test.txt\"\n");
+    return 1;
+  }
 
 
 
@@ -90,6 +100,7 @@ int main()
 
 
   //Successful program termination
+  printf("\nProgram succesfully terminating\n");
   return 0;
 }
 
