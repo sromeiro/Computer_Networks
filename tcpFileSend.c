@@ -32,10 +32,11 @@
 #include <fcntl.h>          // Needed for file i/o constants
 #include <string.h>
 #include <ctype.h>
-#include <sys\stat.h>       // Needed for file i/o constants
-#include <io.h>             // Needed for open(), close(), and eof()
+
 #ifdef WIN
   #include <windows.h>      // Needed for all Winsock stuff
+  #include <io.h>             // Needed for open(), close(), and eof()
+  #include <sys\stat.h>       // Needed for file i/o constants
 #endif
 #ifdef BSD
   #include <sys/types.h>    // Needed for sockets stuff
@@ -44,6 +45,8 @@
   #include <arpa/inet.h>    // Needed for sockets stuff
   #include <fcntl.h>        // Needed for sockets stuff
   #include <netdb.h>        // Needed for sockets stuff
+  #include <sys/io.h>       // Needed for open(), close(), and eof()
+  #include <sys/stat.h>     // Needed for file i/o constants
 #endif
 //----- Defines ---------------------------------------------------------------
 #define  PORT_NUM   1050    // Port number used at the server
@@ -133,16 +136,23 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum, int options)
     exit(-1);
   }
   // Open file to send
-  fh = open(fileName, O_RDONLY | O_BINARY, S_IREAD | S_IWRITE);
+  #ifdef WIN
+    fh = open(fileName, O_RDONLY | O_BINARY, S_IREAD | S_IWRITE);
+  #endif
+
+  #ifdef BSD
+    fh = open(fileName, O_RDONLY, S_IREAD | S_IWRITE);
+  #endif
+
   if (fh == -1)
   {
      printf("  *** ERROR - unable to open '%s' \n", sendFile);
      exit(1);
   }
   // Send file to remote
-  while(!eof(fh))
+  while((length = read(fh, out_buf, SIZE)) != 0)
   {
-    length = read(fh, out_buf, SIZE);
+
     retcode = send(client_s, out_buf, length, 0);
     if (retcode < 0)
     {

@@ -31,10 +31,13 @@
 #include <string.h>         // Needed for memcpy() and strcpy()
 #include <stdlib.h>         // Needed for exit()
 #include <fcntl.h>          // Needed for file i/o constants
-#include <sys\stat.h>       // Needed for file i/o constants
-#include <io.h>             // Needed for open(), close(), and eof()
+#include <string.h>
+#include <ctype.h>
+
 #ifdef WIN
   #include <windows.h>      // Needed for all Winsock stuff
+  #include <io.h>             // Needed for open(), close(), and eof()
+  #include <sys\stat.h>       // Needed for file i/o constants
 #endif
 #ifdef BSD
   #include <sys/types.h>    // Needed for sockets stuff
@@ -43,6 +46,8 @@
   #include <arpa/inet.h>    // Needed for sockets stuff
   #include <fcntl.h>        // Needed for sockets stuff
   #include <netdb.h>        // Needed for sockets stuff
+  #include <sys/io.h>       // Needed for open(), close(), and eof()
+  #include <sys/stat.h>     // Needed for file i/o constants
 #endif
 
 //----- Defines ---------------------------------------------------------------
@@ -149,8 +154,15 @@ int recvFile(char *fileName, int portNum, int maxSize, int options)
   }
 
   // Open IN_FILE for file to write
-  fh = open(fileName, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY,
-    S_IREAD | S_IWRITE);
+
+  #ifdef WIN
+    fh = open(fileName, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, S_IREAD | S_IWRITE);
+  #endif
+
+  #ifdef BSD
+    fh = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, S_IREAD | S_IWRITE);
+  #endif
+
   if (fh == -1)
   {
      printf("  *** ERROR - unable to create '%s' \n", RECV_FILE);
