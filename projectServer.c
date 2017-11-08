@@ -263,10 +263,14 @@ int recvFile(char *fileName, int portNum)
       break;
     }
 
+    //SEND ACK HERE
+    //Compare what is in in_buf to what we have in previous buffer.
+    //If same, then don't re-write, ACK wasn't received.
     length = strlen(in_buf);
     printf("\nlength received: %d\n\nReceived from client: %s \n", length, in_buf);
     fputs(in_buf, fh);
 
+    //Save what is in in_buf to a new buffer for comparisson later.
   } while (length > 0);
 
 
