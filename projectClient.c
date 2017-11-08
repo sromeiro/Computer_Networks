@@ -176,7 +176,7 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
 
     //Add code to wait and receive an ACK before sending again.
     //If ACK not received then send out_buf again.
-    //If ACK received, move on.
+    //If ACK received
   }
 //****************************************************************************//
   if((out_buf[0] = fgetc(fh)) == EOF)
