@@ -34,7 +34,8 @@
 //=  udpServer.c        provided by Dr. Christensen                           =
 //=  tcpClient.c        provided by Dr. Christensen                           =
 //=  tcpServer.c        provided by Dr. Christensen                           =
-//=  Homework03.c       provided by Dr. Christensen                           =
+//=  tcpFileSend.c      provided by Dr. Christensen                           =
+//=  tcpFileRecv.c      provided by Dr. Christensen                           =
 //============================================================================//
 
 #define  BSD                // WIN for Winsock and BSD for BSD sockets
@@ -79,6 +80,11 @@ int main(int argc, char *argv[])
   int                  recv_port;           // Receiver port number
   int                  retcode;             // Return code
 
+
+  strcpy(sendFileName, "sendFile.txt");
+  strcpy(recv_ipAddr, "127.0.0.1");
+  recv_port = PORT_NUM;
+/*
   if (argc != 4)
   {
     printf("usage: 'tcpFileSend sendFile recvIpAddr recvPort' where        \n");
@@ -98,7 +104,7 @@ int main(int argc, char *argv[])
   }
   strcpy(recv_ipAddr, argv[2]);
   recv_port = atoi(argv[3]);
-
+*/
   // Send the file
   printf("Starting file transfer... \n");
   retcode = sendFile(sendFileName, recv_ipAddr, recv_port);
@@ -150,11 +156,12 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
      printf("  *** ERROR - unable to open '%s' \n", sendFile);
      exit(1);
   }
-  // Send file to remote
-  while(fgets(out_buf, SIZE, fh) != NULL)
-  {
 
-    //retcode = send(client_s, out_buf, length, 0);
+  // Send file to remote
+  while(!feof(fh))
+  {
+    fgets(out_buf, SIZE, fh);
+    printf("\nReady to send the following:\n%s\n", out_buf);
     retcode = sendto(client_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
     if (retcode < 0)
     {
@@ -162,6 +169,18 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
       exit(-1);
     }
   }
+
+  if((out_buf[0] = fgetc(fh)) == EOF)
+  {
+    printf("\nWe have an EOF character\n");
+    retcode = sendto(client_s, out_buf, 1, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    if (retcode < 0)
+    {
+      printf("*** ERROR - sendto() failed \n");
+      exit(-1);
+    }
+  }
+
   // Close the file that was sent to the receiver
   close(fh);
 

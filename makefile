@@ -9,3 +9,4 @@ projectClient:
 clean:
 	rm -rf *o projectServer
 	rm -rf *o projectClient
+	rm -rf *o recvFile.txt

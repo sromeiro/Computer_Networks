@@ -34,7 +34,8 @@
 //=  udpServer.c        provided by Dr. Christensen                           =
 //=  tcpClient.c        provided by Dr. Christensen                           =
 //=  tcpServer.c        provided by Dr. Christensen                           =
-//=  Homework03.c       provided by Dr. Christensen                           =
+//=  tcpFileSend.c      provided by Dr. Christensen                           =
+//=  tcpFileRecv.c      provided by Dr. Christensen                           =
 //============================================================================//
 
 #define  BSD                // WIN for Winsock and BSD for BSD sockets
@@ -237,8 +238,6 @@ int recvFile(char *fileName, int portNum)
     exit(-1);
   }
 
-  printf("Preparing file to send...\n");
-
   // Open IN_FILE for file to write
   fh = fopen(fileName,"w");
   if (fh == -1)
@@ -247,24 +246,49 @@ int recvFile(char *fileName, int portNum)
      exit(1);
   }
 
-  // Receive ad write file from tcpFileSend
+  // Receive and write file from tcpFileSend
   do
   {
-    printf("\n...receiving...\n");
+    printf("\nWaiting for recvfrom() to complete... \n");
+    addr_len = sizeof(client_addr);
     retcode = recvfrom(server_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&client_addr, &addr_len);
     if (retcode < 0)
     {
       printf("*** ERROR - recvfrom() failed \n");
       exit(-1);
     }
-    printf("TEST\n");
-    fputs(in_buf, fh);
+    if(in_buf[0] == EOF)
+    {
+      printf("SERVER received an EOF. Breaking out of loop\n");
+      break;
+    }
+
     length = strlen(in_buf);
-    printf("\nlength = %d\n", length);
+    printf("\nlength received: %d\n\nReceived from client: %s \n", length, in_buf);
+    fputs(in_buf, fh);
+
   } while (length > 0);
+
 
   // Close the received file
   close(fh);
+
+  // Copy the four-byte client IP address into an IP address structure
+  memcpy(&client_ip_addr, &client_addr.sin_addr.s_addr, 4);
+
+  // >>> Step #4 <<<
+  // Send to the client using the server socket
+  strcpy(out_buf, "SERVER to CLIENT... Message received!\n");
+  retcode = sendto(server_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&client_addr, sizeof(client_addr));
+  if (retcode < 0)
+  {
+    printf("*** ERROR - sendto() failed \n");
+    exit(-1);
+  }
+
+  // Print an informational message of IP address and port of the client
+  printf("\nIP address of client = %s  port = %d) \n", inet_ntoa(client_ip_addr),
+    ntohs(client_addr.sin_port));
 
   // Close the welcome and connect sockets
   #ifdef WIN
