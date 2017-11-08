@@ -61,9 +61,10 @@
 //============================DEFINITIONS=====================================//
 #define  PORT_NUM   1050    // Arbitrary port number for the server
 #define  SIZE        256    // Buffer size
+#define  RECV_FILE  "recvFile.txt"  // File name of received file
 
 //========================FUNCTION PROTOTYPES=================================//
-int sendFile(char *fileName, char *destIpAddr, int destPortNum);
+int recvFile(char *fileName, int portNum);
 
 //=========================GLOBAL VARIABLES===================================//
 
@@ -72,6 +73,21 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum);
 
 int main()
 {
+  int                  portNum;         // Port number to receive on
+  int                  retcode;         // Return code
+
+  // Initialize parameters
+  portNum = PORT_NUM;
+
+  // Receive the file
+  printf("Starting file transfer... \n");
+  retcode = recvFile(RECV_FILE, portNum);
+  printf("File transfer is complete \n");
+
+
+
+
+/*
   #ifdef WIN
     WORD wVersionRequested = MAKEWORD(1,1);       // Stuff for WSA functions
     WSADATA wsaData;                              // Stuff for WSA functions
@@ -169,7 +185,7 @@ int main()
     // This stuff cleans-up winsock
     WSACleanup();
   #endif
-
+*/
 
 
 
@@ -179,3 +195,100 @@ int main()
 }
 
 //===========================FUNCTION DEFINITIONS=============================//
+int recvFile(char *fileName, int portNum)
+{
+  #ifdef WIN
+    WORD wVersionRequested = MAKEWORD(1,1);       // Stuff for WSA functions
+    WSADATA wsaData;                              // Stuff for WSA functions
+  #endif
+
+  int                  server_s;        // Server socket descriptor
+  struct sockaddr_in   server_addr;     // Server Internet address
+  struct sockaddr_in   client_addr;     // Client Internet address
+  struct in_addr       client_ip_addr;  // Client IP address
+  int                  addr_len;        // Internet address length
+  char                 out_buf[4096];   // Output buffer for data
+  char                 in_buf[4096];    // Input buffer for data
+  int                  retcode;         // Return code
+  int                  fh;              // File handle
+  int                  length;          // Length in received buffer
+
+  #ifdef WIN
+    // This stuff initializes winsock
+    WSAStartup(wVersionRequested, &wsaData);
+  #endif
+
+  // Create a welcome socket
+  server_s = socket(AF_INET, SOCK_DGRAM, 0);
+  if (server_s < 0)
+  {
+    printf("*** ERROR - socket() failed \n");
+    exit(-1);
+  }
+
+  // Fill-in server (my) address information and bind the welcome socket
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_port = htons(portNum);
+  server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  retcode = bind(server_s, (struct sockaddr *)&server_addr, sizeof(server_addr));
+  if (retcode < 0)
+  {
+    printf("*** ERROR - bind() failed \n");
+    exit(-1);
+  }
+
+  printf("Preparing file to send...\n");
+
+  // Open IN_FILE for file to write
+  fh = fopen(fileName,"w");
+  if (fh == -1)
+  {
+     printf("  *** ERROR - unable to create '%s' \n", RECV_FILE);
+     exit(1);
+  }
+
+  // Receive ad write file from tcpFileSend
+  do
+  {
+    printf("\n...receiving...\n");
+    retcode = recvfrom(server_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&client_addr, &addr_len);
+    if (retcode < 0)
+    {
+      printf("*** ERROR - recvfrom() failed \n");
+      exit(-1);
+    }
+    printf("TEST\n");
+    fputs(in_buf, fh);
+    length = strlen(in_buf);
+    printf("\nlength = %d\n", length);
+  } while (length > 0);
+
+  // Close the received file
+  close(fh);
+
+  // Close the welcome and connect sockets
+  #ifdef WIN
+    retcode = closesocket(server_s);
+    if (retcode < 0)
+    {
+      printf("*** ERROR - closesocket() failed \n");
+      exit(-1);
+    }
+  #endif
+  #ifdef BSD
+    retcode = close(server_s);
+    if (retcode < 0)
+    {
+      printf("*** ERROR - close() failed \n");
+      exit(-1);
+    }
+  #endif
+
+  #ifdef WIN
+    // Clean-up winsock
+    WSACleanup();
+  #endif
+
+  // Return zero
+  return(0);
+}

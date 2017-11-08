@@ -44,7 +44,9 @@
 #include <string.h>         // Needed for memcpy() and strcpy()
 #include <stdlib.h>         // Needed for exit()
 #include <fcntl.h>          // Needed for file i/o constants
-#include <io.h>             // Needed for open(), close(), and eof()
+//#include <io.h>             // Needed for open(), close(), and eof()
+#include <string.h>
+#include <ctype.h>
 
 #ifdef WIN                  // If Win
   #include <windows.h>      // Needed for all Winsock stuff
@@ -57,7 +59,7 @@
   #include <arpa/inet.h>    // Needed for sockets stuff
   #include <fcntl.h>        // Needed for sockets stuff
   #include <netdb.h>        // Needed for sockets stuff
-  #include <sys\stat.h>       // Needed for file i/o constants
+  //#include <sys\stat.h>       // Needed for file i/o constants
 #endif
 
 //============================DEFINITIONS=====================================//
@@ -142,21 +144,21 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
   server_addr.sin_addr.s_addr = inet_addr(destIpAddr);
 
   // Open file to send
-  fh = open(fileName, O_RDONLY | O_BINARY, S_IREAD | S_IWRITE);
+  fh = fopen(fileName,"r");
   if (fh == -1)
   {
      printf("  *** ERROR - unable to open '%s' \n", sendFile);
      exit(1);
   }
   // Send file to remote
-  while(!eof(fh))
+  while(fgets(out_buf, SIZE, fh) != NULL)
   {
-    length = read(fh, out_buf, SIZE);
+
     //retcode = send(client_s, out_buf, length, 0);
-    retcode = sendto(client_s, out_buf, length, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    retcode = sendto(client_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
     if (retcode < 0)
     {
-      printf("*** ERROR - recv() failed \n");
+      printf("*** ERROR - sendto() failed \n");
       exit(-1);
     }
   }
@@ -165,6 +167,7 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
 
   // >>> Step #4 <<<
   // Wait to receive a message
+  printf("\nMessage sent. Waiting to receive from Server\n");
   addr_len = sizeof(server_addr);
   retcode = recvfrom(client_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&server_addr, &addr_len);
   if (retcode < 0)

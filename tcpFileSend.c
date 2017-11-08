@@ -30,6 +30,8 @@
 #include <string.h>         // Needed for memcpy() and strcpy()
 #include <stdlib.h>         // Needed for exit()
 #include <fcntl.h>          // Needed for file i/o constants
+#include <string.h>
+#include <ctype.h>
 #include <sys\stat.h>       // Needed for file i/o constants
 #include <io.h>             // Needed for open(), close(), and eof()
 #ifdef WIN
