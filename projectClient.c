@@ -131,6 +131,7 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
     int                  fh;              // File handle
     int                  length;          // Length of send buffer
     int                  retcode;         // Return code
+    char                 eof;             // To hold the EOF character
 
   #ifdef WIN
     // This stuff initializes winsock
@@ -160,9 +161,11 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
 
 //****************************ISSUE HERE - DOUBLE SENDING*********************//
   // Send file to remote
-  while(!feof(fh))
+  while(eof != EOF)
   {
     fgets(out_buf, SIZE, fh);
+    eof = fgetc(fh); //FIXES DOUBLE SEND
+    ungetc(eof, fh); //Need to put character back in the buffer for next read.
     printf("\nReady to send the following:\n%s\n", out_buf);
     retcode = sendto(client_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
     if (retcode < 0)
