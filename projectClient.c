@@ -157,6 +157,8 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
      exit(1);
   }
 
+
+//****************************ISSUE HERE - DOUBLE SENDING*********************//
   // Send file to remote
   while(!feof(fh))
   {
@@ -169,7 +171,7 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
       exit(-1);
     }
   }
-
+//****************************************************************************//
   if((out_buf[0] = fgetc(fh)) == EOF)
   {
     printf("\nWe have an EOF character\n");
