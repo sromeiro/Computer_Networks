@@ -24,7 +24,7 @@
 //=---------------------------------------------------------------------------=
 //=  History:  KJC (08/04/17) - Genesis (from tcpClient.c)                    =
 //=============================================================================
-#define  WIN                // WIN for Winsock and BSD for BSD sockets
+#define  BSD                // WIN for Winsock and BSD for BSD sockets
 //----- Include files ---------------------------------------------------------
 #include <stdio.h>          // Needed for printf()
 #include <string.h>         // Needed for memcpy() and strcpy()
@@ -48,8 +48,6 @@
 #define  SIZE        256    // Buffer size
 //----- Prototypes ------------------------------------------------------------
 int sendFile(char *fileName, char *destIpAddr, int destPortNum, int options);
-KJC (as2_3sol.doc – 10/10/17)
-Page 9 of 15
 //===== Main program ==========================================================
 int main(int argc, char *argv[])
 {
@@ -61,7 +59,7 @@ int main(int argc, char *argv[])
   // Usage and parsing command line arguments
   if (argc != 4)
   {
-    printf("usage: 'tcpFileSend sendFile recvIpAddr recvPort' where        \n");
+    printf("usage: 'projectServer sendFile recvIpAddr recvPort' where      \n");
     printf("       sendFile is the filename of an existing file to be sent \n");
     printf("       to the receiver, recvIpAddr is the IP address of the    \n");
     printf("       receiver, and recvPort is the port number for the       \n");
@@ -104,8 +102,6 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum, int options)
   WORD wVersionRequested = MAKEWORD(1,1);       // Stuff for WSA functions
   WSADATA wsaData;                              // Stuff for WSA functions
 #endif
-KJC (as2_3sol.doc – 10/10/17)
-Page 10 of 15
   int                  client_s;        // Client socket descriptor
   struct sockaddr_in   server_addr;     // Server Internet address
   char                 out_buf[4096];   // Output buffer for data
@@ -154,8 +150,7 @@ Page 10 of 15
   }
   // Close the file that was sent to the receiver
   close(fh);
-KJC (as2_3sol.doc – 10/10/17)
-Page 11 of 15
+
 // Close the client socket
 #ifdef WIN
   retcode = closesocket(client_s);
@@ -179,4 +174,4 @@ Page 11 of 15
 #endif
   // Return zero
   return(0);
-} 
+}

@@ -31,7 +31,7 @@
 //=            KJC (09/22/13) - Minor clean-up to fix warnings                =
 //=            KJC (09/14/17) - Updated build instructions                    =
 //=============================================================================
-#define  WIN                // WIN for Winsock and BSD for BSD sockets
+#define  BSD                // WIN for Winsock and BSD for BSD sockets
 
 //----- Include files --------------------------------------------------------
 #include <stdio.h>          // Needed for printf()
