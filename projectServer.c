@@ -36,6 +36,7 @@
 //=  tcpServer.c        provided by Dr. Christensen                           =
 //=  tcpFileSend.c      provided by Dr. Christensen                           =
 //=  tcpFileRecv.c      provided by Dr. Christensen                           =
+//=  https://stackoverflow.com/questions/13547721/udp-socket-set-timeout      =
 //============================================================================//
 
 #define  BSD                // WIN for Winsock and BSD for BSD sockets
@@ -57,6 +58,7 @@
   #include <arpa/inet.h>    // Needed for sockets stuff
   #include <fcntl.h>        // Needed for sockets stuff
   #include <netdb.h>        // Needed for sockets stuff
+  #include <sys/time.h>     // Needed to make socket timeout
 #endif
 
 //============================DEFINITIONS=====================================//
@@ -85,112 +87,6 @@ int main()
   retcode = recvFile(RECV_FILE, portNum);
   printf("File transfer is complete \n");
 
-
-
-
-/*
-  #ifdef WIN
-    WORD wVersionRequested = MAKEWORD(1,1);       // Stuff for WSA functions
-    WSADATA wsaData;                              // Stuff for WSA functions
-  #endif
-    int                  server_s;        // Server socket descriptor
-    struct sockaddr_in   server_addr;     // Server Internet address
-    struct sockaddr_in   client_addr;     // Client Internet address
-    struct in_addr       client_ip_addr;  // Client IP address
-    int                  addr_len;        // Internet address length
-    char                 out_buf[4096];   // Output buffer for data
-    char                 in_buf[4096];    // Input buffer for data
-    int                  retcode;         // Return code
-
-  #ifdef WIN
-    // This stuff initializes winsock
-    WSAStartup(wVersionRequested, &wsaData);
-  #endif
-
-  // >>> Step #1 <<<
-  // Create a socket
-  //   - AF_INET is Address Family Internet and SOCK_DGRAM is datagram
-  server_s = socket(AF_INET, SOCK_DGRAM, 0);
-  if (server_s < 0)
-  {
-    printf("*** ERROR - socket() failed \n");
-    exit(-1);
-  }
-
-  // >>> Step #2 <<<
-  // Fill-in my socket's address information
-  server_addr.sin_family = AF_INET;                 // Address family to use
-  server_addr.sin_port = htons(PORT_NUM);           // Port number to use
-  server_addr.sin_addr.s_addr = htonl(INADDR_ANY);  // Listen on any IP address
-  retcode = bind(server_s, (struct sockaddr *)&server_addr,
-    sizeof(server_addr));
-  if (retcode < 0)
-  {
-    printf("*** ERROR - bind() failed \n");
-    exit(-1);
-  }
-
-  // >>> Step #3 <<<
-  // Wait to receive a message from client
-  printf("Waiting for recvfrom() to complete... \n");
-  addr_len = sizeof(client_addr);
-  retcode = recvfrom(server_s, in_buf, sizeof(in_buf), 0,
-    (struct sockaddr *)&client_addr, &addr_len);
-  if (retcode < 0)
-  {
-    printf("*** ERROR - recvfrom() failed \n");
-    exit(-1);
-  }
-
-  // Copy the four-byte client IP address into an IP address structure
-  memcpy(&client_ip_addr, &client_addr.sin_addr.s_addr, 4);
-
-  // Print an informational message of IP address and port of the client
-  printf("IP address of client = %s  port = %d) \n", inet_ntoa(client_ip_addr),
-    ntohs(client_addr.sin_port));
-
-  // Output the received message
-  printf("Received from client: %s \n", in_buf);
-
-  // >>> Step #4 <<<
-  // Send to the client using the server socket
-  strcpy(out_buf, "This is a reply message from SERVER to CLIENT");
-  retcode = sendto(server_s, out_buf, (strlen(out_buf) + 1), 0,
-    (struct sockaddr *)&client_addr, sizeof(client_addr));
-  if (retcode < 0)
-  {
-    printf("*** ERROR - sendto() failed \n");
-    exit(-1);
-  }
-
-  // >>> Step #5 <<<
-  // Close all open sockets
-  #ifdef WIN
-    retcode = closesocket(server_s);
-    if (retcode < 0)
-    {
-      printf("*** ERROR - closesocket() failed \n");
-      exit(-1);
-    }
-  #endif
-  #ifdef BSD
-    retcode = close(server_s);
-    if (retcode < 0)
-    {
-      printf("*** ERROR - close() failed \n");
-      exit(-1);
-    }
-  #endif
-
-  #ifdef WIN
-    // This stuff cleans-up winsock
-    WSACleanup();
-  #endif
-*/
-
-
-
-
   printf("\nServer program succesfully terminated\n");
   return 0;
 }
@@ -213,6 +109,12 @@ int recvFile(char *fileName, int portNum)
   int                  retcode;         // Return code
   int                  fh;              // File handle
   int                  length;          // Length in received buffer
+  char                 compare_buf[4096]; //Comparisson bufer
+
+  //Stuff needed to make our socket timeout.
+  struct timeval tv;
+  tv.tv_sec = 5;
+  tv.tv_usec = 0;
 
   #ifdef WIN
     // This stuff initializes winsock
@@ -232,6 +134,13 @@ int recvFile(char *fileName, int portNum)
   server_addr.sin_port = htons(portNum);
   server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
   retcode = bind(server_s, (struct sockaddr *)&server_addr, sizeof(server_addr));
+
+  //Needed to make socket timeout
+  if (setsockopt(server_s, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0)
+  {
+    perror("ERROR\n");
+  }
+
   if (retcode < 0)
   {
     printf("*** ERROR - bind() failed \n");
@@ -246,49 +155,74 @@ int recvFile(char *fileName, int portNum)
      exit(1);
   }
 
-  // Receive and write file from tcpFileSend
+  // Receive and write file from projectClient
   do
   {
     printf("\nWaiting for recvfrom() to complete... \n");
     addr_len = sizeof(client_addr);
+
+    //retcode here will timeout after 5sec and return a -1. This means no message received.
     retcode = recvfrom(server_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&client_addr, &addr_len);
+
+    //Message not received if retcode < 0
     if (retcode < 0)
     {
-      printf("*** ERROR - recvfrom() failed \n");
-      exit(-1);
+      //Message was not received. Don't send ACK and wait to receive again.
+      printf("\n*** ERROR - Did not receive message. Waiting to receive again... \n");
+      retcode = recvfrom(server_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&client_addr, &addr_len);
+      length = strlen(in_buf);
     }
-    if(in_buf[0] == EOF)
+
+    //Message received if retcode >= 0
+    if(retcode >= 0)
     {
-      printf("SERVER received an EOF. Breaking out of loop\n");
-      break;
+      //Message received, see if EOF exists to terminate.
+      if(in_buf[0] == EOF)
+      {
+        //EOF received, break out and terminate program.
+        printf("SERVER received an EOF. Breaking out of loop\n");
+        break;
+      }
+
+      printf("Message received. Sending ACK to Client...\n");
+      //sleep(6); //Simulate packet loss with sleep to trigger timout.
+
+      // Copy the four-byte client IP address into an IP address structure
+      memcpy(&client_ip_addr, &client_addr.sin_addr.s_addr, 4);
+
+      ////SEND ACK HERE
+      strcpy(out_buf, "ACK!\n");
+      retcode = sendto(server_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&client_addr, sizeof(client_addr));
+      if (retcode < 0)
+      {
+        printf("*** ERROR - sendto() failed \n");
+        exit(-1);
+      }
+
+      //Compare what is in in_buf to what we have in previous buffer.
+      //If same, then don't re-write, ACK wasn't received.
+      if(strcmp(compare_buf, in_buf) != 0)
+      {
+        //This is a new message. Proceed with writing.
+        length = strlen(in_buf);
+        printf("\nlength received: %d\n\nReceived from client: %s \n", length, in_buf);
+        fputs(in_buf, fh);
+        //Save what is in in_buf to a new buffer for comparisson later.
+        strcpy(compare_buf, in_buf);
+      }
+      else
+      {
+        //Duplicate message. Client didn't get ACK. Get the new incoming message.
+        printf("\nReceived duplicate\n");
+      }
     }
 
-    //SEND ACK HERE
-    //Compare what is in in_buf to what we have in previous buffer.
-    //If same, then don't re-write, ACK wasn't received.
-    length = strlen(in_buf);
-    printf("\nlength received: %d\n\nReceived from client: %s \n", length, in_buf);
-    fputs(in_buf, fh);
-
-    //Save what is in in_buf to a new buffer for comparisson later.
   } while (length > 0);
 
 
   // Close the received file
   close(fh);
 
-  // Copy the four-byte client IP address into an IP address structure
-  memcpy(&client_ip_addr, &client_addr.sin_addr.s_addr, 4);
-
-  // >>> Step #4 <<<
-  // Send to the client using the server socket
-  strcpy(out_buf, "SERVER to CLIENT... Message received!\n");
-  retcode = sendto(server_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&client_addr, sizeof(client_addr));
-  if (retcode < 0)
-  {
-    printf("*** ERROR - sendto() failed \n");
-    exit(-1);
-  }
 
   // Print an informational message of IP address and port of the client
   printf("\nIP address of client = %s  port = %d) \n", inet_ntoa(client_ip_addr),

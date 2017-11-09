@@ -36,6 +36,7 @@
 //=  tcpServer.c        provided by Dr. Christensen                           =
 //=  tcpFileSend.c      provided by Dr. Christensen                           =
 //=  tcpFileRecv.c      provided by Dr. Christensen                           =
+//=  https://stackoverflow.com/questions/13547721/udp-socket-set-timeout      =
 //============================================================================//
 
 #define  BSD                // WIN for Winsock and BSD for BSD sockets
@@ -45,7 +46,6 @@
 #include <string.h>         // Needed for memcpy() and strcpy()
 #include <stdlib.h>         // Needed for exit()
 #include <fcntl.h>          // Needed for file i/o constants
-//#include <io.h>             // Needed for open(), close(), and eof()
 #include <string.h>
 #include <ctype.h>
 
@@ -60,7 +60,7 @@
   #include <arpa/inet.h>    // Needed for sockets stuff
   #include <fcntl.h>        // Needed for sockets stuff
   #include <netdb.h>        // Needed for sockets stuff
-  //#include <sys\stat.h>       // Needed for file i/o constants
+  #include <sys/time.h>     // Needed to make socket timeout
 #endif
 
 //============================DEFINITIONS=====================================//
@@ -133,6 +133,11 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
     int                  retcode;         // Return code
     char                 eof;             // To hold the EOF character
 
+    //Stuff needed to make our socket timeout.
+    struct timeval tv;
+    tv.tv_sec = 5;
+    tv.tv_usec = 0;
+
   #ifdef WIN
     // This stuff initializes winsock
     WSAStartup(wVersionRequested, &wsaData);
@@ -150,6 +155,12 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
   server_addr.sin_port = htons(destPortNum);
   server_addr.sin_addr.s_addr = inet_addr(destIpAddr);
 
+  //Needed to make socket timeout
+  if (setsockopt(client_s, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0)
+  {
+    perror("ERROR\n");
+  }
+
   // Open file to send
   fh = fopen(fileName,"r");
   if (fh == -1)
@@ -158,8 +169,6 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
      exit(1);
   }
 
-
-//****************************ISSUE HERE - DOUBLE SENDING*********************//
   // Send file to remote
   while(eof != EOF)
   {
@@ -167,6 +176,8 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
     eof = fgetc(fh); //FIXES DOUBLE SEND
     ungetc(eof, fh); //Need to put character back in the buffer for next read.
     printf("\nReady to send the following:\n%s\n", out_buf);
+    //sleep(1); //Simulate packet loss with sleep to trigger timeout.
+
     retcode = sendto(client_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
     if (retcode < 0)
     {
@@ -174,13 +185,22 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
       exit(-1);
     }
 
-    //Add code to wait and receive an ACK before sending again.
-    //If ACK not received then send out_buf again.
-    //If ACK received
+    //retcode here will timeout after 5sec and return a -1. This means no ACK received.
+    retcode = recvfrom(client_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&server_addr, &addr_len);
+    printf("Received:\n%s\nRetcode: %d\n",in_buf, retcode); //Verify we got the ACK
+
+    if(retcode < 0)
+    {
+      //ACK not received send it again
+      printf("\n*** ERROR - No ACK!...Resending...\n");
+      retcode = sendto(client_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    }
+
   }
-//****************************************************************************//
+
   if((out_buf[0] = fgetc(fh)) == EOF)
   {
+    //Send the last EOF character to terminate this process on Server side.
     printf("\nWe have an EOF character\n");
     retcode = sendto(client_s, out_buf, 1, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
     if (retcode < 0)
@@ -192,23 +212,6 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
 
   // Close the file that was sent to the receiver
   close(fh);
-
-  // >>> Step #4 <<<
-  // Wait to receive a message
-  printf("\nMessage sent. Waiting to receive from Server\n");
-  addr_len = sizeof(server_addr);
-  retcode = recvfrom(client_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&server_addr, &addr_len);
-  if (retcode < 0)
-  {
-    printf("*** ERROR - recvfrom() failed \n");
-    exit(-1);
-  }
-
-  // Output the received message
-  printf("Received from server: %s \n", in_buf);
-
-
-
 
   // Close the client socket
   #ifdef WIN
