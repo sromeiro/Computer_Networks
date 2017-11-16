@@ -5,7 +5,7 @@
 //=    1) This program is a useful example for the class project            =
 //=       to emulate a packet loss rate.                                    =
 //=-------------------------------------------------------------------------=
-//=  Build: gcc discard.c -odiscard, cl discard.c                           =
+//=  Build: gcc projectDiscard.c -o projectDiscard                          =
 //=-------------------------------------------------------------------------=
 //=  Execute: discard                                                       =
 //=-------------------------------------------------------------------------=
