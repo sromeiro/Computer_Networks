@@ -194,7 +194,14 @@ int recvFile(char *fileName, int portNum)
       strcpy(out_buf, "ACK!\n");
         
         
-     // ======= add losing packet loss code here ---  lines 196-201================
+
+        // ======= add losing packet loss code here ---  lines 196-201================
+
+        // z = randval();
+        // if (z > rate) {
+        //
+        //      send code
+        
       retcode = sendto(server_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&client_addr, sizeof(client_addr));
       if (retcode < 0)
       {
