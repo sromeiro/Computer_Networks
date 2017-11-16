@@ -1,31 +1,31 @@
-//=============================================== file = projectServer.c =======
+//=============================================== file = projectServer.c ======
 //=  A UDP based protocol that provides fast and reliable transfer            =
-//=  between two hosts on the internet.
+//=  between two hosts on the internet.                                       =
 //=============================================================================
 //=  Notes:                    NEED TO UPDATE                                 =
 //=    1) This program conditionally compiles for Winsock and BSD sockets.    =
 //=       Set the initial #define to WIN or BSD as appropriate.               =
-//=    2) This program needs udpServer to be running on another host.         =
-//=       Program udpServer must be started first.                            =
+//=    2) This program needs projectServer to be running on another host.     =
+//=       Program projectServer must be started first.                        =
 //=    3) This program assumes that the IP address of the host running        =
 //=       udpServer is defined in "#define IP_ADDR"                           =
 //=    4) The steps #'s correspond to lecture topics.                         =
 //=---------------------------------------------------------------------------=
 //=  Example execution:       NEED TO UPDATE                                  =
-//=  (udpServer and udpClient running on host 127.0.0.1)                      =
+//=  (projectServer and projectClient running on host 127.0.0.1)              =
 //=    Received from server: This is a reply message from SERVER to CLIENT    =
 //=---------------------------------------------------------------------------=
-//=  Build:                   NEED TO UPDATE                                  =
-//=    Windows (WIN):  Borland: bcc32 udpClient.c                             =
-//=                    MinGW: gcc udpClient.c -lws2_32 -o updClient           =
-//=                    Visual C: cl ucpClient.c wsock32.lib                   =
-//=    Unix/Mac (BSD): gcc ucpClient.c -lnsl -o ucpClient                     =
+//=  Build:                                                                   =
+//=    Windows (WIN):  Borland: bcc32 projectServer.c                         =
+//=                    MinGW: gcc projectServer.c -lws2_32 -o projectServer   =
+//=                    Visual C: cl projectServer.c wsock32.lib               =
+//=    Unix/Mac (BSD): gcc projectServer.c -lnsl -o projectSever              =
 //=---------------------------------------------------------------------------=
 //=  Execute:                                                                 =
 //=---------------------------------------------------------------------------=
 //=  Author: Esthevan Romeiro & My Nyugen                                     =
 //=          University of South Florida                                      =
-//=          Email: eromeiro@mail.usf.edu ; My's email                        =
+//=          Email: eromeiro@mail.usf.edu ; mynguyen@mail.usf.edu             =
 //=---------------------------------------------------------------------------=
 //=  History: (10/26/17) - Genesis (from udpServer.c)                         =
 //=---------------------------------------------------------------------------=
@@ -47,7 +47,7 @@
 #include <stdlib.h>         // Needed for exit()
 #include <string.h>         // Needed to handle strings
 
-#ifdef WIN                  // If Win
+#ifdef WIN                  // If WIN
   #include <windows.h>      // Needed for all Winsock stuff
 #endif
 
@@ -62,8 +62,8 @@
 #endif
 
 //============================DEFINITIONS=====================================//
-#define  PORT_NUM   1050    // Arbitrary port number for the server
-#define  SIZE        256    // Buffer size
+#define  PORT_NUM   1050            // Arbitrary port number for the server
+#define  SIZE        256            // Buffer size
 #define  RECV_FILE  "recvFile.txt"  // File name of received file
 
 //========================FUNCTION PROTOTYPES=================================//
@@ -99,25 +99,25 @@ int recvFile(char *fileName, int portNum)
     WSADATA wsaData;                              // Stuff for WSA functions
   #endif
 
-  int                  server_s;        // Server socket descriptor
-  struct sockaddr_in   server_addr;     // Server Internet address
-  struct sockaddr_in   client_addr;     // Client Internet address
-  struct in_addr       client_ip_addr;  // Client IP address
-  int                  addr_len;        // Internet address length
-  char                 out_buf[4096];   // Output buffer for data
-  char                 in_buf[4096];    // Input buffer for data
-  int                  retcode;         // Return code
-  int                  fh;              // File handle
-  int                  length;          // Length in received buffer
-  char                 compare_buf[4096]; //Comparisson bufer
+  int                  server_s;            // Server socket descriptor
+  struct sockaddr_in   server_addr;         // Server Internet address
+  struct sockaddr_in   client_addr;         // Client Internet address
+  struct in_addr       client_ip_addr;      // Client IP address
+  int                  addr_len;            // Internet address length
+  char                 out_buf[4096];       // Output buffer for data
+  char                 in_buf[4096];        // Input buffer for data
+  int                  retcode;             // Return code
+  int                  fh;                  // File handle
+  int                  length;              // Length in received buffer
+  char                 compare_buf[4096];   //Comparisson bufer
 
-  //Stuff needed to make our socket timeout.
+  //Stuff needed to make our socket timeout
   struct timeval tv;
   tv.tv_sec = 5;
   tv.tv_usec = 0;
 
   #ifdef WIN
-    // This stuff initializes winsock
+    // This stuff initializes Winsock
     WSAStartup(wVersionRequested, &wsaData);
   #endif
 
@@ -190,7 +190,7 @@ int recvFile(char *fileName, int portNum)
       // Copy the four-byte client IP address into an IP address structure
       memcpy(&client_ip_addr, &client_addr.sin_addr.s_addr, 4);
 
-      ////SEND ACK HERE
+      // SEND ACK HERE
       strcpy(out_buf, "ACK!\n");
       retcode = sendto(server_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&client_addr, sizeof(client_addr));
       if (retcode < 0)

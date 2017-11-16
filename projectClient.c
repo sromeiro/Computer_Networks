@@ -5,7 +5,7 @@
 //=  Notes:                    NEED TO UPDATE                                 =
 //=    1) This program conditionally compiles for Winsock and BSD sockets.    =
 //=       Set the initial #define to WIN or BSD as appropriate.               =
-//=    2) This program needs udpServer to be running on another host.         =
+//=    2) This program needs projectServer to be running on another host.     =
 //=       Program udpServer must be started first.                            =
 //=    3) This program assumes that the IP address of the host running        =
 //=       udpServer is defined in "#define IP_ADDR"                           =
@@ -15,17 +15,17 @@
 //=  (udpServer and udpClient running on host 127.0.0.1)                      =
 //=    Received from server: This is a reply message from SERVER to CLIENT    =
 //=---------------------------------------------------------------------------=
-//=  Build:                   NEED TO UPDATE                                  =
-//=    Windows (WIN):  Borland: bcc32 udpClient.c                             =
-//=                    MinGW: gcc udpClient.c -lws2_32 -o updClient           =
-//=                    Visual C: cl ucpClient.c wsock32.lib                   =
-//=    Unix/Mac (BSD): gcc ucpClient.c -lnsl -o ucpClient                     =
+//=  Build:                                                                   =
+//=    Windows (WIN):  Borland: bcc32 projectClient.c                         =
+//=                    MinGW: gcc projectClient.c -lws2_32 -o projectClient   =
+//=                    Visual C: cl projectClient.c wsock32.lib               =
+//=    Unix/Mac (BSD): gcc projectClient.c -lnsl -o projectClient             =
 //=---------------------------------------------------------------------------=
 //=  Execute:                                                                 =
 //=---------------------------------------------------------------------------=
 //=  Author: Esthevan Romeiro & My Nyugen                                     =
 //=          University of South Florida                                      =
-//=          Email: eromeiro@mail.usf.edu ; My's email                        =
+//=          Email: eromeiro@mail.usf.edu ; mynguyen@mail.usf.edu             =
 //=---------------------------------------------------------------------------=
 //=  History: (10/26/17) - Genesis (from udpClient.c)                         =
 //=---------------------------------------------------------------------------=
@@ -49,7 +49,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#ifdef WIN                  // If Win
+#ifdef WIN                  // If WIN
   #include <windows.h>      // Needed for all Winsock stuff
 #endif
 
