@@ -64,7 +64,7 @@
 #endif
 
 //============================DEFINITIONS=====================================//
-#define  PORT_NUM   1050    // Port number used at the server
+#define  PORT_NUM   6006    // Port number used at the server
 #define  SIZE        256    // Buffer size
 //========================FUNCTION PROTOTYPES=================================//
 int sendFile(char *fileName, char *destIpAddr, int destPortNum);

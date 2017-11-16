@@ -40,6 +40,7 @@ int main(void)
     
     // Test loop to demonstate discard
     printCount = 0;
+    // Consider how many total messages we need
     for (i=0; i<TOTAL_MESSAGES; i++)
     {
         z = rand_val();

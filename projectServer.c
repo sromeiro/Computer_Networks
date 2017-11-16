@@ -62,7 +62,7 @@
 #endif
 
 //============================DEFINITIONS=====================================//
-#define  PORT_NUM   1050            // Arbitrary port number for the server
+#define  PORT_NUM   6006            // Arbitrary port number for the server
 #define  SIZE        256            // Buffer size
 #define  RECV_FILE  "recvFile.txt"  // File name of received file
 
