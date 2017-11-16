@@ -34,27 +34,30 @@ double rand_val(void);      // LCG RNG using x_n = 7^5*x_(n-1)mod(2^31 - 1)
 //===========================================================================
 int main(void)
 {
-    int    printCount;          // Counter of printf completed
+    int    sendCount;           // Counter of printf completed
     double z;                   // Uniform random value 0 to 1
     int    i;                   // Loop counter
     
     // Test loop to demonstate discard
-    printCount = 0;
-    // Consider how many total messages we need
+    sendCount = 0;
+    
+    // ======== Consider how many total messages we need ==============
     for (i=0; i<TOTAL_MESSAGES; i++)
     {
         z = rand_val();
         
         if (z > DISCARD_RATE)
         {
+             // ======== write in sendcode =============================
             printf("Message #%d \n", i);
-            printCount++;
+            sendCount++;
         }
     }
+     // ======== Consider how many total messages we need ==============
     
     // Output percentage of messages printed
     printf(">>> %f %% of messages printed \n",
-        100.0 * (double) printCount / TOTAL_MESSAGES);
+        100.0 * (double) sendCount / TOTAL_MESSAGES);
 }
 
 //=========================================================================

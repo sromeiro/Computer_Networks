@@ -192,28 +192,33 @@ int recvFile(char *fileName, int portNum)
 
       // SEND ACK HERE
       strcpy(out_buf, "ACK!\n");
+        
+        
+     // ======= add losing packet loss code here ---  lines 196-201================
       retcode = sendto(server_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&client_addr, sizeof(client_addr));
       if (retcode < 0)
       {
         printf("*** ERROR - sendto() failed \n");
         exit(-1);
       }
-
+     // ======= add losing packet loss code here ---  lines 196-201================
+        
+        
       //Compare what is in in_buf to what we have in previous buffer.
       //If same, then don't re-write, ACK wasn't received.
       if(strcmp(compare_buf, in_buf) != 0)
       {
         //This is a new message. Proceed with writing.
         length = strlen(in_buf);
-        printf("\nlength received: %d\n\nReceived from client: %s \n", length, in_buf);
+        printf("\nLength received: %d\n\nReceived from client: %s \n", length, in_buf);
         fputs(in_buf, fh);
         //Save what is in in_buf to a new buffer for comparisson later.
         strcpy(compare_buf, in_buf);
       }
       else
       {
-        //Duplicate message. Client didn't get ACK. Get the new incoming message.
-        printf("\nReceived duplicate\n");
+        // Duplicate message. Client didn't get ACK. Get the new incoming message.
+        printf("\nReceived duplicate.\n");
       }
     }
 
@@ -222,7 +227,6 @@ int recvFile(char *fileName, int portNum)
 
   // Close the received file
   close(fh);
-
 
   // Print an informational message of IP address and port of the client
   printf("\nIP address of client = %s  port = %d) \n", inet_ntoa(client_ip_addr),

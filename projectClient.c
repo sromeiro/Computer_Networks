@@ -178,12 +178,14 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
     printf("\nReady to send the following:\n%s\n", out_buf);
     //sleep(1); //Simulate packet loss with sleep to trigger timeout.
 
+      // ======= add losing packet loss code here ---  lines 181-187================
     retcode = sendto(client_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
     if (retcode < 0)
     {
       printf("*** ERROR - sendto() failed \n");
       exit(-1);
     }
+      // ======= add losing packet loss code here ---  lines 181-187================
 
     //retcode here will timeout after 5sec and return a -1. This means no ACK received.
     retcode = recvfrom(client_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&server_addr, &addr_len);
@@ -193,7 +195,10 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
     {
       //ACK not received send it again
       printf("\n*** ERROR - No ACK!...Resending...\n");
-      retcode = sendto(client_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        // ======= add losing packet loss code here ---  line 199 ================
+        retcode = sendto(client_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        // ======= add losing packet loss code here ---  line 199 ================
+
     }
 
   }
@@ -202,13 +207,18 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
   {
     //Send the last EOF character to terminate this process on Server side.
     printf("\nWe have an EOF character\n");
+      // ======= add losing packet loss code here ---  lines 212-217================
+
     retcode = sendto(client_s, out_buf, 1, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
     if (retcode < 0)
     {
       printf("*** ERROR - sendto() failed \n");
       exit(-1);
     }
+      // ======= add losing packet loss code here ---  lines 212-217================
+
   }
+
 
   // Close the file that was sent to the receiver
   close(fh);
