@@ -21,7 +21,7 @@
 //=                    Visual C: cl projectClient.c wsock32.lib               =
 //=    Unix/Mac (BSD): gcc projectClient.c -lnsl -o projectClient             =
 //=---------------------------------------------------------------------------=
-//=  Execute:                                                                 =
+//=  Execute: projectClient                                                   =
 //=---------------------------------------------------------------------------=
 //=  Author: Esthevan Romeiro & My Nyugen                                     =
 //=          University of South Florida                                      =
@@ -133,7 +133,7 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
     int                  retcode;         // Return code
     char                 eof;             // To hold the EOF character
 
-    //Stuff needed to make our socket timeout.
+    // Stuff needed to make our socket timeout.
     struct timeval tv;
     tv.tv_sec = 5;
     tv.tv_usec = 0;
@@ -227,7 +227,7 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
 
       // ======= add losing packet loss code here ---  lines 212-217================
 
-      // z = randval();
+      // z = rand_val();
       // if (z > rate) {
       //
       //      send code

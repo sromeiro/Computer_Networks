@@ -42,16 +42,16 @@ int main(void)
     sendCount = 0;
     
     // ======== Consider how many total messages we need ==============
-    for (i=0; i<TOTAL_MESSAGES; i++)
+   // for (i=0; i<TOTAL_MESSAGES; i++)
+   // { }
+    
+    z = rand_val();
+    
+    if (z > DISCARD_RATE)
     {
-        z = rand_val();
-        
-        if (z > DISCARD_RATE)
-        {
-             // ======== write in sendcode =============================
-            printf("Message #%d \n", i);
-            sendCount++;
-        }
+        // ======== write in sendcode =============================
+        printf("Message #%d \n", i);
+        sendCount++;
     }
      // ======== Consider how many total messages we need ==============
     
