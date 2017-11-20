@@ -69,9 +69,11 @@
 #define  PORT_NUM   6006            // Unique port number for the server
 #define  SIZE        256            // Buffer size
 #define  RECV_FILE  "recvFile.txt"  // File name of received file
+#define  DISCARD_RATE 0.10          // Discard rate (from 0.0 to 1.0)
 
 //========================FUNCTION PROTOTYPES=================================//
 int recvFile(char *fileName, int portNum);
+// double rand_val(void);      // LCG RNG using x_n = 7^5*x_(n-1)mod(2^31 - 1)
 
 //=========================GLOBAL VARIABLES===================================//
 
@@ -203,38 +205,26 @@ int recvFile(char *fileName, int portNum)
       // Send to the client using the server socket -- SEND ACK HERE
       strcpy(out_buf, "ACK!\n");
       
-      // Add losing packet loss code to stimulate teh server to send packets again
+      // ================ Add losing packet loss code to stimulate the server to send packets again ================
       z = rand_val();
-      if (z > rate){
-            
-        }
-        
-
-        // ======= add losing packet loss code here ---  lines 196-201================
-
-        // z = randval();
-        // if (z > rate) {
-        //
-        //      send code
-        
-      retcode = sendto(server_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&client_addr, sizeof(client_addr));
-      if (retcode < 0)
-      {
-        printf("*** ERROR - sendto() failed \n");
-        exit(-1);
+      if (z > DISCARD_RATE){
+          retcode = sendto(server_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&client_addr, sizeof(client_addr));
+          if (retcode < 0)
+          {
+            printf("*** ERROR - sendto() failed \n");
+            exit(-1);
+          }
       }
-     // ======= add losing packet loss code here ---  lines 196-201================
-        
         
       //Compare what is in in_buf to what we have in previous buffer
       //If same, then don't re-write, ACK wasn't received
       if(strcmp(compare_buf, in_buf) != 0)
       {
-        //This is a new message, proceed with writing
+        // This is a new message, proceed with writing
         length = strlen(in_buf);
         printf("\nLength received: %d\n\nReceived from client: %s \n", length, in_buf);
         fputs(in_buf, fh);
-        //Save what is in in_buf to a new buffer for comparisson later
+        // Save what is in in_buf to a new buffer for comparisson later
         strcpy(compare_buf, in_buf);
       }
       else

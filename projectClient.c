@@ -64,10 +64,14 @@
 #endif
 
 //============================DEFINITIONS=====================================//
-#define  PORT_NUM   6006    // Port number used at the server
-#define  SIZE        256    // Buffer size
+#define  PORT_NUM       6006    // Port number used at the server
+#define  SIZE           256     // Buffer size
+#define DISCARD_RATE    0.10    // Discard rate (from 0.0 to 1.0)
+
 //========================FUNCTION PROTOTYPES=================================//
 int sendFile(char *fileName, char *destIpAddr, int destPortNum);
+// double rand_val(void);      // LCG RNG using x_n = 7^5*x_(n-1)mod(2^31 - 1)
+
 //=========================GLOBAL VARIABLES===================================//
 
 
@@ -110,7 +114,7 @@ int main(int argc, char *argv[])
   retcode = sendFile(sendFileName, recv_ipAddr, recv_port);
   printf("File transfer is complete \n");
 
-  //Successful program termination
+  // Successful program termination
   printf("\nClient program succesfully terminated\n");
   return 0;
 }
@@ -133,13 +137,13 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
     int                  retcode;         // Return code
     char                 eof;             // To hold the EOF character
 
-    // Stuff needed to make our socket timeout.
+    // Stuff needed to make our socket time-out
     struct timeval tv;
     tv.tv_sec = 5;
     tv.tv_usec = 0;
 
   #ifdef WIN
-    // This stuff initializes winsock
+    // This stuff initializes Winsock
     WSAStartup(wVersionRequested, &wsaData);
   #endif
 
@@ -150,12 +154,13 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
     printf("*** ERROR - socket() failed \n");
     exit(-1);
   }
+    
   // Fill-in the server's address information and do a connect
   server_addr.sin_family = AF_INET;
   server_addr.sin_port = htons(destPortNum);
   server_addr.sin_addr.s_addr = inet_addr(destIpAddr);
 
-  //Needed to make socket timeout
+  // Needed to make socket time-out
   if (setsockopt(client_s, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0)
   {
     perror("ERROR\n");
@@ -173,76 +178,63 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
   while(eof != EOF)
   {
     fgets(out_buf, SIZE, fh);
-    eof = fgetc(fh); //FIXES DOUBLE SEND
-    ungetc(eof, fh); //Need to put character back in the buffer for next read.
+    eof = fgetc(fh); // FIXES DOUBLE SEND
+    ungetc(eof, fh); // Need to put character back in the buffer for next read.
     printf("\nReady to send the following:\n%s\n", out_buf);
-    //sleep(1); //Simulate packet loss with sleep to trigger timeout.
+    //sleep(1); // Simulate packet loss with sleep to trigger timeout.
 
-      // ======= add losing packet loss code here ---  lines 181-187================
-
-      // z = randval();
-      // if (z > rate) {
-  //
- //      send code
-      
-
-      
-    retcode = sendto(client_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
-    if (retcode < 0)
-    {
-      printf("*** ERROR - sendto() failed \n");
-      exit(-1);
+    // ======= add losing packet loss code here ================
+    z = randval();
+    if (z > DISCARD_RATE) {
+        retcode = sendto(client_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        if (retcode < 0)
+        {
+          printf("*** ERROR - sendto() failed \n");
+          exit(-1);
+        }
     }
-      
-        // }
-      // ======= add losing packet loss code here ---  lines 181-187================
+    // ======= add losing packet loss code here ===============
 
-    //retcode here will timeout after 5sec and return a -1. This means no ACK received.
+    // retcode here will timeout after 5sec and return a -1. This means no ACK received.
     retcode = recvfrom(client_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&server_addr, &addr_len);
     printf("Received:\n%s\nRetcode: %d\n",in_buf, retcode); //Verify we got the ACK
 
     if(retcode < 0)
     {
-      //ACK not received send it again
+      // ACK not received send it again
       printf("\n*** ERROR - No ACK!...Resending...\n");
        
- // ======= add losing packet loss code here ---  line 199 ================
-        // z = randval();
-        // if (z > rate) {
-        //
-        //      send code
-        
-       
-        retcode = sendto(client_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
-        // ======= add losing packet loss code here ---  line 199 ================
-
+      // ======= add losing packet loss code here ================
+      z = randval();
+      if (z > DISCARD_RATE) {
+          retcode = sendto(client_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+          if (retcode < 0)
+          {
+              printf("*** ERROR - sendto() failed \n");
+              exit(-1);
+          }
+        // ======= add losing packet loss code here ================
+      }
     }
-
-  }
 
   if((out_buf[0] = fgetc(fh)) == EOF)
   {
-    //Send the last EOF character to terminate this process on Server side.
+    // Send the last EOF character to terminate this process on Server side.
     printf("\nWe have an EOF character\n");
 
-      // ======= add losing packet loss code here ---  lines 212-217================
-
-      // z = rand_val();
-      // if (z > rate) {
-      //
-      //      send code
-      
-
-    retcode = sendto(client_s, out_buf, 1, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
-    if (retcode < 0)
-    {
-      printf("*** ERROR - sendto() failed \n");
-      exit(-1);
-    }
-      // ======= add losing packet loss code here ---  lines 212-217================
-
+      // ======= add losing packet loss code here ================
+      z = rand_val();
+      if (z > DISCARD_RATE) {
+          retcode = sendto(client_s, out_buf, 1, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+          if (retcode < 0)
+          {
+          printf("*** ERROR - sendto() failed \n");
+          exit(-1);
+          }
+      // ======= add losing packet loss code here ================
+      }
   }
-
+}
 
   // Close the file that was sent to the receiver
   close(fh);
@@ -265,7 +257,7 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
     }
   #endif
   #ifdef WIN
-    // Clean-up winsock
+    // Clean-up Winsock
     WSACleanup();
   #endif
     // Return zero
