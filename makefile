@@ -1,10 +1,10 @@
 all: projectServer projectClient
 
 projectServer: projectServer.c
-	gcc projectServer.c -lnsl -w -o projectServer
+	gcc projectServer.c -lnsl -o projectServer
 
 projectClient: projectClient.c
-	gcc projectClient.c -lnsl -w -o projectClient
+	gcc projectClient.c -lnsl -o projectClient
 
 clean:
 	rm -rf *o projectServer
