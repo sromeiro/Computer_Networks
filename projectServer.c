@@ -21,7 +21,7 @@
 //=                    Visual C: cl projectServer.c wsock32.lib               =
 //=    Unix/Mac (BSD): gcc projectServer.c -lnsl -o projectSever              =
 //=---------------------------------------------------------------------------=
-//=  Execute:                                                                 =
+//=  Execute: (BSD): ./projectServer                                          =
 //=---------------------------------------------------------------------------=
 //=  Author: Esthevan Romeiro & My Nyugen                                     =
 //=          University of South Florida                                      =
@@ -50,6 +50,8 @@
 
 #ifdef WIN                  // If WIN
   #include <windows.h>      // Needed for all Winsock stuff
+  #include <io.h>             // Needed for open(), close(), and eof()
+  #include <sys\stat.h>       // Needed for file i/o constants
 #endif
 
 #ifdef BSD                  // If BSD
@@ -66,13 +68,13 @@
 #endif
 
 //============================DEFINITIONS=====================================//
-#define  PORT_NUM   6006            // Arbitrary port number for the server
+#define  PORT_NUM   6006            // Given UDP port number for the server
 #define  BUFFER_SIZE 4097           // Size of buffers
 #define  SIZE        512            // Size of packet
 #define  RECV_FILE  "recvFile.txt"  // File name of received file
 #define  DISCARD_RATE 0.0           // Discard rate (from 0.0 to 1.0)
 #define  TIMEOUT 0                  // Timeout in seconds
-#define  MTIMEOUT 1000            // Timeout in microseconds
+#define  MTIMEOUT 1000              // Timeout in microseconds
 #define  ATTEMPTS 100               // Number of attempts to resend packet
 typedef int bool;                   // Create a bool typedef
 #define true 1                      // True boolean value
@@ -80,9 +82,6 @@ typedef int bool;                   // Create a bool typedef
 //========================FUNCTION PROTOTYPES=================================//
 int recvFile(char *fileName, int portNum);
 double rand_val(void);      // LCG RNG using x_n = 7^5*x_(n-1)mod(2^31 - 1)
-//=========================GLOBAL VARIABLES===================================//
-
-
 //================================MAIN========================================//
 
 int main()
@@ -95,9 +94,7 @@ int main()
   // Receive the file
   printf("Starting file transfer... \n");
   recvFile(RECV_FILE, portNum);
-  //printf("File transfer is complete \n");
 
-  //printf("\nServer program succesfully terminated\n");
   return 0;
 }
 
@@ -109,7 +106,18 @@ int main()
 //=  Inputs:                                                                  =
 //=    fileName ----- Name of file to open, read, and send                    =
 //=    portNum ------ Port number server is listening on                      =
+//=---------------------------------------------------------------------------=
+//=  Outputs:                                                                 =
+//=    Returns -1 for fail and 0 for success                                  =
+//=---------------------------------------------------------------------------=
+//=  Side effects:                                                            =
+//=    None known                                                             =
+//=---------------------------------------------------------------------------=
+//=  Bugs:                                                                    =
+//=    None known                                                             =
+//=---------------------------------------------------------------------------=
 //=============================================================================
+
 int recvFile(char *fileName, int portNum)
 {
   #ifdef WIN
@@ -126,16 +134,16 @@ int recvFile(char *fileName, int portNum)
   int                  multiplier2 = 1;
   if(DISCARD_RATE >= 0.01)
   {
-    multiplier1 = 16;
-    multiplier2 = 2;
+                      multiplier1 = 16;
+                      multiplier2 = 2;
   }
-  char                 out_buf[BUFFER_SIZE*multiplier2];       // Output buffer for data
-  char                 in_buf[BUFFER_SIZE*multiplier2];        // Input buffer for data
+  char                 out_buf[BUFFER_SIZE*multiplier2]; // Output buffer
+  char                 in_buf[BUFFER_SIZE*multiplier2];  // Input buffer
   int                  packetSize = SIZE*multiplier1;
   int                  retcode;             // Return code
   int                  fh;                  // File handle
   int                  length;              // Length in received buffer
-  char                 compare_buf[BUFFER_SIZE*multiplier2];   //Comparisson bufer
+  char                 compare_buf[BUFFER_SIZE*multiplier2]; //Comparisson bufer
   double               random;              // Uniform random value from 0 to 1
   bool                 first;               // Flag to signal first round
 
@@ -143,6 +151,7 @@ int recvFile(char *fileName, int portNum)
   struct timeval tv;
   tv.tv_sec = TIMEOUT;
   tv.tv_usec = MTIMEOUT;
+  //Longer first timeout to allow time to execute both programs
   struct timeval tv1;
   tv1.tv_sec = 5;
   tv1.tv_usec = 0;
@@ -152,7 +161,7 @@ int recvFile(char *fileName, int portNum)
     WSAStartup(wVersionRequested, &wsaData);
   #endif
 
-  // Create a welcome socket
+  // Create the server socket
   server_s = socket(AF_INET, SOCK_DGRAM, 0);
   if (server_s < 0)
   {
@@ -166,16 +175,16 @@ int recvFile(char *fileName, int portNum)
   server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
   retcode = bind(server_s, (struct sockaddr *)&server_addr, sizeof(server_addr));
 
-  //Needed to make socket timeout
-  if (setsockopt(server_s, SOL_SOCKET, SO_RCVTIMEO,&tv1,sizeof(tv1)) < 0)
-  {
-    perror("ERROR\n");
-  }
-
   if (retcode < 0)
   {
     printf("*** ERROR - bind() failed \n");
     exit(-1);
+  }
+
+  //Needed to make socket timeout
+  if (setsockopt(server_s, SOL_SOCKET, SO_RCVTIMEO,&tv1,sizeof(tv1)) < 0)
+  {
+    perror("ERROR\n");
   }
 
   // Open IN_FILE for file to write
@@ -186,18 +195,21 @@ int recvFile(char *fileName, int portNum)
      exit(1);
   }
 
-  first = true;
+  first = true;   // Set first round flag to true for longer timeout
 
   // Receive and write file from projectClient
   do
   {
+    // If first round we need a longer timeout.
     if(first == true)
     {
-      //printf("\nWaiting for FIRST recvfrom() to complete... \n");
       addr_len = sizeof(client_addr);
 
-      //retcode here will timeout after 5sec and return a -1. This means no message received.
-      memset(in_buf, 0, (packetSize) * sizeof(char)); //Clear the buffer before receiving new message
+      //Clear the buffer before receiving new message
+      memset(in_buf, 0, (packetSize) * sizeof(char));
+
+      //retcode will timeout after 5sec and return a -1.
+      //This means no message received.
       retcode = recvfrom(server_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&client_addr, &addr_len);
       length = strlen(in_buf);
       if (setsockopt(server_s, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0)
@@ -208,11 +220,13 @@ int recvFile(char *fileName, int portNum)
     }
     else
     {
-      //printf("\nWaiting for recvfrom() to complete... \n");
       addr_len = sizeof(client_addr);
 
-      //retcode here will timeout after 5sec and return a -1. This means no message received.
-      memset(in_buf, 0, (packetSize) * sizeof(char)); //Clear the buffer before receiving new message
+      //Clear the buffer before receiving new message
+      memset(in_buf, 0, (packetSize) * sizeof(char));
+
+      //retcode will timeout after 1000 microseconds and return a -1.
+      //This means no message received.
       retcode = recvfrom(server_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&client_addr, &addr_len);
       length = strlen(in_buf);
     }
@@ -224,23 +238,15 @@ int recvFile(char *fileName, int portNum)
       for(i; i < ATTEMPTS; i++) // Resend ATTEMPTS times until give up.
       {
         //Message was not received. Don't send ACK and wait to receive again.
-        //printf("\n*** ERROR - Did not receive message. Waiting to receive again... \n");
-
         retcode = recvfrom(server_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&client_addr, &addr_len);
 
         if(retcode > 0)
         {
-          //printf("\nMessage received on attempt %d\n",i+1);
+          // Message received. Break out of for loop
           length = strlen(in_buf);
           break;
         }
       }
-
-      if(i == ATTEMPTS - 1)
-      {
-        printf("\nMessage never received\n");
-      }
-
     }
 
     //Message received if retcode >= 0
@@ -250,12 +256,8 @@ int recvFile(char *fileName, int portNum)
       if(in_buf[0] == EOF)
       {
         //EOF received, break out and terminate program.
-        //printf("SERVER received an EOF. Breaking out of loop\n");
         break;
       }
-
-      //printf("Sending ACK to Client...\n");
-      //sleep(6); //Simulate packet loss with sleep to trigger timout.
 
       // Copy the four-byte client IP address into an IP address structure
       memcpy(&client_ip_addr, &client_addr.sin_addr.s_addr, 4);
@@ -265,7 +267,7 @@ int recvFile(char *fileName, int portNum)
 
       //Simulate a packet loss by getting a random value
       random = rand_val();
-      //printf("\nRandom = %f\n", random);
+      //If check passes send packet. Else lose packet.
       if(random > DISCARD_RATE)
       {
         //Random check passed. Send ACK.
@@ -276,41 +278,30 @@ int recvFile(char *fileName, int portNum)
           exit(-1);
         }
       }
-      else
-      {
-        //Random check failed. Lose ACK.
-        //printf("\nACK LOST!\n");
-      }
 
-      //Compare what is in in_buf to what we have in previous buffer.
+      //Compare what is in in_buf to what we have in compare buffer.
       //If same, then don't re-write, ACK wasn't received.
       if(strcmp(compare_buf, in_buf) != 0)
       {
         //This is a new message. Proceed with writing.
-        length = strlen(in_buf);
-        //length = retcode;
-        //printf("\nLength received: %d\n\nReceived from client: \n%s \n", length, in_buf);
         write(fh, in_buf, length);
-        //Save what is in in_buf to a new buffer for comparisson later.
+        length = strlen(in_buf);
+
+        //Save what is in in_buf for comparisson later.
         strcpy(compare_buf, in_buf);
-      }
-      else
-      {
-        // Duplicate message. Client didn't get ACK. Get the new incoming message.
-        //printf("\nReceived duplicate.\n");
       }
     }
 
-  } while (length > 0);
+  } while (length > 0); //End of main do/while loop
 
-
+  //EOF received, send EOF back to client as confirmation.
   if(in_buf[0] == EOF)
   {
     out_buf[0] == EOF;
-    //printf("\nSend EOF back to acknowledge it was received by server\n");
+
     //Simulate a packet loss by getting a random value
     random = rand_val();
-    //printf("\nRandom = %f\n", random);
+    //If check passes send packet. Else lose packet.
     if(random > DISCARD_RATE)
     {
       //Random check passed. Send ACK.
@@ -321,19 +312,10 @@ int recvFile(char *fileName, int portNum)
         exit(-1);
       }
     }
-    else
-    {
-      //Random check failed. Lose ACK.
-      //printf("\nEOF LOST!\n");
-    }
   }
 
   // Close the received file
   close(fh);
-
-  // Print an informational message of IP address and port of the client
-  //printf("\nIP address of client = %s  port = %d) \n", inet_ntoa(client_ip_addr),
-    //ntohs(client_addr.sin_port));
 
   // Close the welcome and connect sockets
   #ifdef WIN
