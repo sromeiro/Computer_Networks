@@ -51,12 +51,12 @@
 #endif
 
 //----- Defines ---------------------------------------------------------------
-#define  PORT_NUM   6006            // Arbitrary port number for the server
+#define  PORT_NUM   6066            // Arbitrary port number for the server
 #define  SIZE        256            // Buffer size
-#define  RECV_FILE  "recvFile.dat"  // File name of received file
+#define  RECV_FILE  "recvFile.txt"  // File name of received file
 
 //----- Prototypes ------------------------------------------------------------
-int recvFile(char *fileName, int portNum, int maxSize, int options);
+int recvFile(char *fileName, int portNum, int maxSize);
 
 //===== Main program ==========================================================
 int main()
@@ -74,7 +74,7 @@ int main()
 
   // Receive the file
   printf("Starting file transfer... \n");
-  retcode = recvFile(RECV_FILE, portNum, maxSize, options);
+  retcode = recvFile(RECV_FILE, portNum, maxSize);
   printf("File transfer is complete \n");
 
   // Return
@@ -99,7 +99,7 @@ int main()
 //=  Bugs:                                                                    =
 //=    None known                                                             =
 //=---------------------------------------------------------------------------=
-int recvFile(char *fileName, int portNum, int maxSize, int options)
+int recvFile(char *fileName, int portNum, int maxSize)
 {
 #ifdef WIN
   WORD wVersionRequested = MAKEWORD(1,1);       // Stuff for WSA functions

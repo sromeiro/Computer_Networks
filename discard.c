@@ -34,20 +34,20 @@ void main(void)
     int    printCount;          // Counter of printf completed
     double z;                   // Uniform random value 0 to 1
     int    i;                   // Loop counter
-    
+
     // Test loop to demonstate discard
     printCount = 0;
     for (i=0; i<TOTAL_MESSAGES; i++)
     {
         z = rand_val();
-        
+
         if (z > DISCARD_RATE)
         {
             printf("Message #%d \n", i);
             printCount++;
         }
     }
-    
+
     // Output percentage of messages printed
     printf(">>> %f %% of messages printed \n",
            100.0 * (double) printCount / TOTAL_MESSAGES);
@@ -70,7 +70,7 @@ double rand_val(void)
     long        x_div_q;         // x divided by q
     long        x_mod_q;         // x modulo q
     long        x_new;           // New x value
-    
+
     // RNG using integer arithmetic
     x_div_q = x / q;
     x_mod_q = x % q;
@@ -79,7 +79,7 @@ double rand_val(void)
         x = x_new;
     else
         x = x_new + m;
-    
+
     // Return a random value between 0.0 and 1.0
     return((double) x / m);
 }

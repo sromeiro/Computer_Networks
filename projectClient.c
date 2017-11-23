@@ -36,6 +36,7 @@
 //=  tcpServer.c        provided by Dr. Christensen                           =
 //=  tcpFileSend.c      provided by Dr. Christensen                           =
 //=  tcpFileRecv.c      provided by Dr. Christensen                           =
+//=  discard.c          provided by Dr. Christensen                           =
 //=  https://stackoverflow.com/questions/13547721/udp-socket-set-timeout      =
 //============================================================================//
 
@@ -69,10 +70,17 @@
 #endif
 
 //============================DEFINITIONS=====================================//
-#define  PORT_NUM   6006    // Port number used at the server
-#define  SIZE        256    // Buffer size
+#define  PORT_NUM   6006            // Port number used at the server
+#define  BUFFER_SIZE 4096           // Size of buffers
+#define  SIZE        512            // Size of packet
+#define  SEND_FILE  "sendFile.txt"  // File name of received file
+#define  DISCARD_RATE 0.02           // Discard rate (from 0.0 to 1.0)
+#define  TIMEOUT 0                  // Timeout in seconds
+#define  MTIMEOUT 1000            // Timeout in microseconds
+#define  ATTEMPTS 100               // Number of attempts to resend packet
 //========================FUNCTION PROTOTYPES=================================//
 int sendFile(char *fileName, char *destIpAddr, int destPortNum);
+double rand_val(void);      // LCG RNG using x_n = 7^5*x_(n-1)mod(2^31 - 1)
 //=========================GLOBAL VARIABLES===================================//
 
 
@@ -84,12 +92,14 @@ int main(int argc, char *argv[])
   char                 recv_ipAddr[16];     // Reciver IP address
   int                  recv_port;           // Receiver port number
 
-
-  strcpy(sendFileName, "sendFile.txt");
-  strcpy(recv_ipAddr, "127.0.0.1");
-  recv_port = PORT_NUM;
-/*
-  if (argc != 4)
+  if(argc == 1)
+  {
+    printf("\nNo server specified. Using default IP, Port Number and File\n");
+    strcpy(sendFileName, SEND_FILE);
+    strcpy(recv_ipAddr, "127.0.0.1");
+    recv_port = PORT_NUM;
+  }
+  else if (argc < 4)
   {
     printf("usage: 'tcpFileSend sendFile recvIpAddr recvPort' where        \n");
     printf("       sendFile is the filename of an existing file to be sent \n");
@@ -98,28 +108,41 @@ int main(int argc, char *argv[])
     printf("       receiver where tcpFileRecv is running.                  \n");
     return(0);
   }
-
-  strcpy(sendFileName, argv[1]);
-  if(sendFileName == NULL)
+  else
   {
-    //Show error if file could not be opened
-    fprintf(stderr, "Could not open \"%s\"\n", argv[1]);
-    return 1;
+    strcpy(sendFileName, argv[1]);
+    if(sendFileName == NULL)
+    {
+      //Show error if file could not be opened
+      fprintf(stderr, "Could not open \"%s\"\n", argv[1]);
+      return 1;
+    }
+    strcpy(recv_ipAddr, argv[2]);
+    recv_port = atoi(argv[3]);
   }
-  strcpy(recv_ipAddr, argv[2]);
-  recv_port = atoi(argv[3]);
-*/
+
+
+
   // Send the file
   printf("Starting file transfer... \n");
   sendFile(sendFileName, recv_ipAddr, recv_port);
-  printf("File transfer is complete \n");
+  //printf("File transfer is complete \n");
 
   //Successful program termination
-  printf("\nClient program succesfully terminated\n");
+  //printf("\nClient program succesfully terminated\n");
   return 0;
 }
 
 //===========================FUNCTION DEFINITIONS=============================//
+
+//=============================================================================
+//=  Function to send a file using UDP                                        =
+//=============================================================================
+//=  Inputs:                                                                  =
+//=    fileName ----- Name of file to open, read, and send                    =
+//=    destIpAddr --- IP address or receiver                                  =
+//=    destPortNum -- Port number receiver is listening on                    =
+//=============================================================================
 int sendFile(char *fileName, char *destIpAddr, int destPortNum)
 {
   #ifdef WIN
@@ -130,17 +153,31 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
     int                  client_s;        // Client socket descriptor
     struct sockaddr_in   server_addr;     // Server Internet address
     unsigned int         addr_len;        // Internet address length
-    char                 out_buf[4096];   // Output buffer for data
-    char                 in_buf[4096];    // Input buffer for data
+    int                  multiplier1 = 1;
+    int                  multiplier2 = 1;
+    if(DISCARD_RATE >= 0.01)
+    {
+      multiplier1 = 16;
+      multiplier2 = 2;
+    }
+    if(strcmp(destIpAddr, "127.0.0.1"))
+    {
+      //Sending remote. Increase packet size.
+      multiplier1 = 2;
+    }
+    char                 out_buf[BUFFER_SIZE*multiplier2];   // Output buffer for data
+    char                 in_buf[BUFFER_SIZE*multiplier2];    // Input buffer for data
+    int                  packetSize = SIZE*multiplier1;      // Packet size
     int                  fh;              // File handle
     int                  length;          // Length of send buffer
     int                  retcode;         // Return code
     //char                 eof;             // To hold the EOF character
+    double               random;          // Uniform random value from 0 to 1
 
     //Stuff needed to make our socket timeout.
     struct timeval tv;
-    tv.tv_sec = 5;
-    tv.tv_usec = 0;
+    tv.tv_sec = TIMEOUT;
+    tv.tv_usec = MTIMEOUT;
 
   #ifdef WIN
     // This stuff initializes winsock
@@ -189,51 +226,158 @@ if (fh == -1)
    exit(1);
 }
 // Send file to remote
-while((length = read(fh, out_buf, SIZE)) != 0)
+while((length = read(fh, out_buf, packetSize)) != 0)
 {
-  memset(out_buf + length, 0, (SIZE - length) * sizeof(char));
-  printf("\nReady to send the following:\n%s\n", out_buf);
-  retcode = sendto(client_s, out_buf, length, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
-  if (retcode < 0)
+  memset(out_buf + length, 0, (packetSize - length) * sizeof(char));
+  //printf("\nReady to send the following:\n%s\n", out_buf);
+
+  //Simulate a packet loss by getting a random value
+  random = rand_val();
+  //printf("\nRandom = %f\n", random);
+  if(random > DISCARD_RATE)
   {
-    printf("*** ERROR - sendto() failed \n");
-    exit(-1);
+    //Random check passed. Send packet.
+    retcode = sendto(client_s, out_buf, length, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    //printf("\nPacket SENT\n");
+    if (retcode < 0)
+    {
+      printf("*** ERROR - sendto() failed \n");
+      exit(-1);
+    }
   }
+  else
+  {
+    //Random check failed. Lose packet.
+    //printf("\nPacket LOST!\n");
+  }
+
 
   //retcode here will timeout after 5sec and return a -1. This means no ACK received.
   retcode = recvfrom(client_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&server_addr, &addr_len);
-  printf("Received:\n%s\nRetcode: %d\n",in_buf, retcode); //Verify we got the ACK
+  //printf("Received:\n%s\nRetcode: %d\n",in_buf, retcode); //Verify we got the ACK
 
   if(retcode < 0)
   {
-    //ACK not received send it again
-    printf("\n*** ERROR - No ACK!...Resending...\n");
-    retcode = sendto(client_s, out_buf, length, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    int i = 0; // For loop counter.
+    for(i; i < ATTEMPTS; i++) // Resend ATTEMPTS times until give up
+    {
+      //ACK not received send it again
+      //printf("\n*** ERROR - No ACK!...Resending...\n");
+
+      random = rand_val();
+      //printf("\nRandom = %f\n", random);
+      if(random > DISCARD_RATE)
+      {
+        //Random check passed. Send packet.
+        retcode = sendto(client_s, out_buf, length, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        if (retcode < 0)
+        {
+          printf("*** ERROR - sendto() failed \n");
+          exit(-1);
+        }
+      }
+      else
+      {
+        //Random check failed. Lose packet.
+        //printf("\nPacket LOST!\n");
+      }
+
+      //Wait to receive ACK
+      retcode = recvfrom(client_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&server_addr, &addr_len);
+      //printf("Received:\n%s\nRetcode: %d\n",in_buf, retcode); //Verify we got the ACK
+      if(retcode > 0)
+      {
+        //printf("\nACK received on attempt %d\n",i+1);
+        break;
+      }
+    }
+
+    if(i == ATTEMPTS - 1)
+    {
+      //printf("\nACK never received\n");
+    }
   }
 }
 
+//EOF reached. Send the last EOF character to close connection
 if(length == 0)
 {
   out_buf[0] = EOF;
   //Send the last EOF character to terminate this process on Server side.
-  printf("\nWe have an EOF character\n");
+  //printf("\nWe have an EOF character\n");
 
-    // ======= add losing packet loss code here ---  lines 212-217================
-
-    // z = randval();
-    // if (z > rate)
-    //
-    //      send code
-
-
-  retcode = sendto(client_s, out_buf, 1, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
-  if (retcode < 0)
+  //Simulate packet loss with random value
+  random = rand_val();
+  //printf("\nRandom = %f\n", random);
+  if(random > DISCARD_RATE)
   {
-    printf("*** ERROR - sendto() failed \n");
-    exit(-1);
+    //Random check passed. Send packet.
+    retcode = sendto(client_s, out_buf, length + 1, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    if (retcode < 0)
+    {
+      printf("*** ERROR - sendto() failed \n");
+      exit(-1);
+    }
   }
-    // ======= add losing packet loss code here ---  lines 212-217================
+  else
+  {
+    //Random check failed. Lose packet.
+    //printf("\nEOF Packet LOST!\n");
+  }
 
+  //Wait to receive EOF back
+  //printf("\nClient waiting to receive EOF back from server\n");
+  retcode = recvfrom(client_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&server_addr, &addr_len);
+  //printf("Received:\n%s\nRetcode: %d\n",in_buf, retcode); //Verify we got the ACK
+
+  if(retcode < 0)
+  {
+    int i = 0; // For loop counter.
+    for(i; i < ATTEMPTS * 0.10; i++) // Resend 10% of ATTEMPTS times until give up
+    {
+      //EOF not received send it again
+      //printf("\n*** ERROR - No EOF!...Resending...\n");
+
+      random = rand_val();
+      //printf("\nRandom = %f\n", random);
+      if(random > DISCARD_RATE)
+      {
+        //Random check passed. Send packet.
+        //printf("\nLENGTH: %d\nSENDING: %s\n",length, out_buf);
+        retcode = sendto(client_s, out_buf, length + 1, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        if (retcode < 0)
+        {
+          printf("*** ERROR - sendto() failed \n");
+          exit(-1);
+        }
+      }
+      else
+      {
+        //Random check failed. Lose packet.
+        //printf("\nPacket LOST!\n");
+      }
+
+      //Wait to receive EOF
+      retcode = recvfrom(client_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&server_addr, &addr_len);
+      //printf("Received:\n%s\nRetcode: %d\n",in_buf, retcode); //Verify we got the ACK
+
+      if(retcode > 0)
+      {
+        //printf("\nEOF received on attempt %d\n",i+1);
+        break;
+      }
+    }
+
+    if(i == (ATTEMPTS * 0.10) - 1)
+    {
+      //printf("\nEOF never received\n");
+    }
+  }
+
+  else
+  {
+    //printf("\nEOF received on first attempt\n");
+  }
 }
 // Close the file that was sent to the receiver
 
@@ -339,4 +483,36 @@ if(length == 0)
   #endif
     // Return zero
     return(0);
+}
+
+
+//=========================================================================
+//= Multiplicative LCG for generating uniform(0.0, 1.0) random numbers    =
+//=   - x_n = 7^5*x_(n-1)mod(2^31 - 1)                                    =
+//=   - With x seeded to 1 the 10000th x value should be 1043618065       =
+//=   - From R. Jain, "The Art of Computer Systems Performance Analysis," =
+//=     John Wiley & Sons, 1991. (Page 443, Figure 26.2)                  =
+//=========================================================================
+double rand_val(void)
+{
+    const long  a =      16807;  // Multiplier
+    const long  m = 2147483647;  // Modulus
+    const long  q =     127773;  // m div a
+    const long  r =       2836;  // m mod a
+    static long x = 1;           // Random int value (seed is set to 1)
+    long        x_div_q;         // x divided by q
+    long        x_mod_q;         // x modulo q
+    long        x_new;           // New x value
+
+    // RNG using integer arithmetic
+    x_div_q = x / q;
+    x_mod_q = x % q;
+    x_new = (a * x_mod_q) - (r * x_div_q);
+    if (x_new > 0)
+        x = x_new;
+    else
+        x = x_new + m;
+
+    // Return a random value between 0.0 and 1.0
+    return((double) x / m);
 }

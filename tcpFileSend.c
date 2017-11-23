@@ -49,10 +49,11 @@
   #include <sys/stat.h>     // Needed for file i/o constants
 #endif
 //----- Defines ---------------------------------------------------------------
-#define  PORT_NUM   6006    // Port number used at the server
+#define  PORT_NUM   6066    // Port number used at the server
 #define  SIZE        256    // Buffer size
+#define  SEND_FILE  "sendFile.txt"  // File name of received file
 //----- Prototypes ------------------------------------------------------------
-int sendFile(char *fileName, char *destIpAddr, int destPortNum, int options);
+int sendFile(char *fileName, char *destIpAddr, int destPortNum);
 //===== Main program ==========================================================
 int main(int argc, char *argv[])
 {
@@ -62,23 +63,37 @@ int main(int argc, char *argv[])
   int                  options;             // Options
   int                  retcode;             // Return code
   // Usage and parsing command line arguments
-  if (argc != 4)
+  if(argc == 1)
   {
-    printf("usage: 'projectServer sendFile recvIpAddr recvPort' where      \n");
+    printf("\nNo server specified. Using default IP, Port Number and File\n");
+    strcpy(sendFileName, SEND_FILE);
+    strcpy(recv_ipAddr, "127.0.0.1");
+    recv_port = PORT_NUM;
+  }
+  else if (argc < 4)
+  {
+    printf("usage: 'tcpFileSend sendFile recvIpAddr recvPort' where        \n");
     printf("       sendFile is the filename of an existing file to be sent \n");
     printf("       to the receiver, recvIpAddr is the IP address of the    \n");
     printf("       receiver, and recvPort is the port number for the       \n");
     printf("       receiver where tcpFileRecv is running.                  \n");
     return(0);
   }
-  strcpy(sendFileName, argv[1]);
-  strcpy(recv_ipAddr, argv[2]);
-  recv_port = atoi(argv[3]);
-  // Initialize parameters
-  options = 0;     // This parameter is unused in this implementation
+  else
+  {
+    strcpy(sendFileName, argv[1]);
+    if(sendFileName == NULL)
+    {
+      //Show error if file could not be opened
+      fprintf(stderr, "Could not open \"%s\"\n", argv[1]);
+      return 1;
+    }
+    strcpy(recv_ipAddr, argv[2]);
+    recv_port = atoi(argv[3]);
+  }
   // Send the file
   printf("Starting file transfer... \n");
-  retcode = sendFile(sendFileName, recv_ipAddr, recv_port, options);
+  retcode = sendFile(sendFileName, recv_ipAddr, recv_port);
   printf("File transfer is complete \n");
   // Return
   return(0);
@@ -101,7 +116,7 @@ int main(int argc, char *argv[])
 //=  Bugs:                                                                    =
 //=    None known                                                             =
 //=---------------------------------------------------------------------------=
-int sendFile(char *fileName, char *destIpAddr, int destPortNum, int options)
+int sendFile(char *fileName, char *destIpAddr, int destPortNum)
 {
 #ifdef WIN
   WORD wVersionRequested = MAKEWORD(1,1);       // Stuff for WSA functions
