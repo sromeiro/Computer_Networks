@@ -73,7 +73,7 @@
 #define  SIZE        512            // Size of packet
 #define  RECV_FILE  "recvFile.txt"  // File name of received file
 #define  DISCARD_RATE 0.0           // Discard rate (from 0.0 to 1.0)
-#define  TIMEOUT 0                  // Timeout in seconds
+#define  TIMEOUT  0                 // Timeout in seconds
 #define  MTIMEOUT 1000              // Timeout in microseconds
 #define  ATTEMPTS 100               // Number of attempts to resend packet
 typedef int bool;                   // Create a bool typedef
@@ -130,30 +130,22 @@ int recvFile(char *fileName, int portNum)
   struct sockaddr_in   client_addr;         // Client Internet address
   struct in_addr       client_ip_addr;      // Client IP address
   unsigned int         addr_len;            // Internet address length
-  int                  multiplier1 = 1;
+  int                  multiplier1 = 3;
   int                  multiplier2 = 1;
-  if(DISCARD_RATE >= 0.01)
-  {
-                      multiplier1 = 16;
-                      multiplier2 = 2;
-  }
-  char                 out_buf[BUFFER_SIZE*multiplier2]; // Output buffer
-  char                 in_buf[BUFFER_SIZE*multiplier2];  // Input buffer
   int                  packetSize = SIZE*multiplier1;
   int                  retcode;             // Return code
   int                  fh;                  // File handle
   int                  length;              // Length in received buffer
-  char                 compare_buf[BUFFER_SIZE*multiplier2]; //Comparisson bufer
+  char                 setup_buf[BUFFER_SIZE];
   double               random;              // Uniform random value from 0 to 1
   bool                 first;               // Flag to signal first round
 
   //Stuff needed to make our socket timeout
   struct timeval tv;
-  tv.tv_sec = TIMEOUT;
-  tv.tv_usec = MTIMEOUT;
+
   //Longer first timeout to allow time to execute both programs
   struct timeval tv1;
-  tv1.tv_sec = 5;
+  tv1.tv_sec = 10;
   tv1.tv_usec = 0;
 
   #ifdef WIN
@@ -195,50 +187,81 @@ int recvFile(char *fileName, int portNum)
      exit(1);
   }
 
-  first = true;   // Set first round flag to true for longer timeout
+  //=========================FIRST TIME SETUP CONNECTION======================//
+  int setup;
+  addr_len = sizeof(client_addr);
 
-  // Receive and write file from projectClient
+  //Clear the buffer before receiving new message
+  memset(setup_buf, 0, (packetSize) * sizeof(char));
+
+  //Receive first time setup message from Client.
+  //Determines what timeout and packet sizes will be used.
+  retcode = recvfrom(server_s, setup_buf, 1, 0, (struct sockaddr *)&client_addr, &addr_len);
+  length = strlen(setup_buf);
+  setup = setup_buf[0] % 48;
+  if(setup == 0)
+  {
+    //Discard rate AND local. Low timeout.
+    multiplier1 = 32;
+    multiplier2 = 4;
+    tv.tv_sec = TIMEOUT;
+    tv.tv_usec = MTIMEOUT;
+  }
+  else if(setup == 1)
+  {
+    //No Discard rate AND local. Increased timeout.
+    multiplier1 = 5;
+    multiplier2 = 1;
+    tv.tv_sec = TIMEOUT;
+    tv.tv_usec = MTIMEOUT;
+  }
+  else
+  {
+    //No Discard AND sending remote. High timeout
+    multiplier1 = 64;
+    multiplier2 = 8;
+    tv.tv_sec = TIMEOUT+0;
+    tv.tv_usec = MTIMEOUT*100;
+  }
+
+  if (setsockopt(server_s, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0)
+  {
+    perror("ERROR\n");
+  }
+
+  char                 out_buf[BUFFER_SIZE*multiplier2]; // Output buffer
+  char                 in_buf[BUFFER_SIZE*multiplier2];  // Input buffer
+                       packetSize = SIZE*multiplier1;    // New packet size
+  char                 compare_buf[BUFFER_SIZE*multiplier2]; //Comparisson bufer
+
+  memcpy(&client_ip_addr, &client_addr.sin_addr.s_addr, 4);
+
+  // SEND FIRST ACK HERE
+  strcpy(out_buf, "First ACK!\n");
+
+  retcode = sendto(server_s, out_buf, (strlen(out_buf) + 1), 0, (struct sockaddr *)&client_addr, sizeof(client_addr));
+  //==========================================================================//
+
+  // Receive and write file from projectClient has not reached EOF
   do
   {
-    // If first round we need a longer timeout.
-    if(first == true)
-    {
-      addr_len = sizeof(client_addr);
+    addr_len = sizeof(client_addr);
 
-      //Clear the buffer before receiving new message
-      memset(in_buf, 0, (packetSize) * sizeof(char));
+    //Clear the buffer before receiving new message
+    memset(in_buf, 0, (packetSize) * sizeof(char));
 
-      //retcode will timeout after 5sec and return a -1.
-      //This means no message received.
-      retcode = recvfrom(server_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&client_addr, &addr_len);
-      length = strlen(in_buf);
-      if (setsockopt(server_s, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0)
-      {
-        perror("ERROR\n");
-      }
-      first = false;
-    }
-    else
-    {
-      addr_len = sizeof(client_addr);
+    //retcode will timeout after 1000 microseconds and return a -1.
+    //This means no message received.
+    retcode = recvfrom(server_s, in_buf, packetSize, 0, (struct sockaddr *)&client_addr, &addr_len);
+    length = strlen(in_buf);
 
-      //Clear the buffer before receiving new message
-      memset(in_buf, 0, (packetSize) * sizeof(char));
-
-      //retcode will timeout after 1000 microseconds and return a -1.
-      //This means no message received.
-      retcode = recvfrom(server_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&client_addr, &addr_len);
-      length = strlen(in_buf);
-    }
-
-    //Message not received if retcode < 0
     if (retcode < 0)
     {
       int i = 0; // For loop counter
       for(i; i < ATTEMPTS; i++) // Resend ATTEMPTS times until give up.
       {
         //Message was not received. Don't send ACK and wait to receive again.
-        retcode = recvfrom(server_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&client_addr, &addr_len);
+        retcode = recvfrom(server_s, in_buf, packetSize, 0, (struct sockaddr *)&client_addr, &addr_len);
 
         if(retcode > 0)
         {
@@ -281,15 +304,25 @@ int recvFile(char *fileName, int portNum)
 
       //Compare what is in in_buf to what we have in compare buffer.
       //If same, then don't re-write, ACK wasn't received.
-      if(strcmp(compare_buf, in_buf) != 0)
+      int i = 0;
+      for(i; i <= 3; i++)
       {
-        //This is a new message. Proceed with writing.
-        write(fh, in_buf, length);
-        length = strlen(in_buf);
+        if(strcmp(compare_buf, in_buf) != 0)
+        {
+          //This is a new message. Proceed with writing.
+          write(fh, in_buf, length);
+          length = strlen(in_buf);
 
-        //Save what is in in_buf for comparisson later.
-        strcpy(compare_buf, in_buf);
+          //Save what is in in_buf for comparisson later.
+          strcpy(compare_buf, in_buf);
+          break;
+        }
+        else
+        {
+          retcode = recvfrom(server_s, in_buf, packetSize, 0, (struct sockaddr *)&client_addr, &addr_len);
+        }
       }
+
     }
 
   } while (length > 0); //End of main do/while loop
@@ -317,7 +350,7 @@ int recvFile(char *fileName, int portNum)
   // Close the received file
   close(fh);
 
-  // Close the welcome and connect sockets
+  // Close the open sockets
   #ifdef WIN
     retcode = closesocket(server_s);
     if (retcode < 0)

@@ -74,10 +74,13 @@
 #define  BUFFER_SIZE 4096           // Size of buffers
 #define  SIZE        512            // Size of packet
 #define  SEND_FILE  "sendFile.txt"  // File name of received file
-#define  DISCARD_RATE 0.02          // Discard rate (from 0.0 to 1.0)
+#define  DISCARD_RATE 0.00          // Discard rate (from 0.0 to 1.0)
 #define  TIMEOUT 0                  // Timeout in seconds
 #define  MTIMEOUT 1000              // Timeout in microseconds
 #define  ATTEMPTS 100               // Number of attempts to resend packet
+typedef int bool;                   // Create a bool typedef
+#define true 1                      // True boolean value
+#define false 0                     // False boolean value
 //========================FUNCTION PROTOTYPES=================================//
 int sendFile(char *fileName, char *destIpAddr, int destPortNum);
 double rand_val(void);      // LCG RNG using x_n = 7^5*x_(n-1)mod(2^31 - 1)
@@ -158,18 +161,38 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
   int                  client_s;        // Client socket descriptor
   struct sockaddr_in   server_addr;     // Server Internet address
   unsigned int         addr_len;        // Internet address length
-  int                  multiplier1 = 1; // Adjustments for packets
+  int                  multiplier1 = 3; // Adjustments for packets
   int                  multiplier2 = 1; // Adjustments for buffers
-  if(DISCARD_RATE >= 0.01)
+
+  //========================SIZE & TIMEOUT SETUP==============================//
+  //Stuff needed to make our socket timeout.
+  struct timeval tv;
+
+  if(DISCARD_RATE >= 0.01 && !strcmp(destIpAddr, "127.0.0.1"))
   {
-    multiplier1 = 16;
-    multiplier2 = 2;
+    //Discard rate AND local. Low timeout.
+    multiplier1 = 32;
+    multiplier2 = 4;
+    tv.tv_sec = TIMEOUT;
+    tv.tv_usec = MTIMEOUT;
   }
-  if(strcmp(destIpAddr, "127.0.0.1"))
+  if(DISCARD_RATE == 0.00 && !strcmp(destIpAddr, "127.0.0.1"))
   {
-    //If not local. Sending remote. Increase packet size.
-    multiplier1 = 2;
+    //No Discard rate AND local. Increased timeout.
+    multiplier1 = 5;
+    multiplier2 = 1;
+    tv.tv_sec = TIMEOUT;
+    tv.tv_usec = MTIMEOUT;
   }
+  if(DISCARD_RATE == 0.00 && strcmp(destIpAddr, "127.0.0.1"))
+  {
+    //No Discard AND sending remote. High timeout
+    multiplier1 = 64;
+    multiplier2 = 8;
+    tv.tv_sec = TIMEOUT+0;
+    tv.tv_usec = MTIMEOUT*500;
+  }
+  //==========================================================================//
   char                 out_buf[BUFFER_SIZE*multiplier2];   // Output buffer
   char                 in_buf[BUFFER_SIZE*multiplier2];    // Input buffer
   int                  packetSize = SIZE*multiplier1;      // Packet size
@@ -177,11 +200,8 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
   int                  length;          // Length of send buffer
   int                  retcode;         // Return code
   double               random;          // Uniform random value from 0 to 1
+  bool                 first;           // First round variable
 
-  //Stuff needed to make our socket timeout.
-  struct timeval tv;
-  tv.tv_sec = TIMEOUT;
-  tv.tv_usec = MTIMEOUT;
 
   #ifdef WIN
     // This stuff initializes winsock
@@ -221,9 +241,37 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
      exit(1);
   }
 
+  //=====================SYNC TIMEOUT & SIZE WITH SERVER======================//
+  if(DISCARD_RATE >= 0.01 && !strcmp(destIpAddr, "127.0.0.1"))
+  {
+    //Discard rate AND local. Low timeout.
+    out_buf[0] = '0';
+    retcode = sendto(client_s, out_buf, 1, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    retcode = recvfrom(client_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&server_addr, &addr_len);
+  }
+  else if(DISCARD_RATE == 0.00 && !strcmp(destIpAddr, "127.0.0.1"))
+  {
+    //No Discard rate AND local. Increased timeout.
+    out_buf[0] = '1';
+    retcode = sendto(client_s, out_buf, 1, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    retcode = recvfrom(client_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&server_addr, &addr_len);
+  }
+  else
+  {
+    //No Discard rate AND remote. Highest timeout.
+    out_buf[0] = '2';
+    retcode = sendto(client_s, out_buf, 1, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    retcode = recvfrom(client_s, in_buf, sizeof(in_buf), 0, (struct sockaddr *)&server_addr, &addr_len);
+  }
+  //==========================================================================//
+
   // Send file to remote
   while((length = read(fh, out_buf, packetSize)) != 0)
   {
+    if(out_buf[0] == EOF)
+    {
+      break;
+    }
     memset(out_buf + length, 0, (packetSize - length) * sizeof(char));
 
     //Simulate a packet loss by getting a random value
@@ -232,7 +280,6 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
     {
       //Random check passed. Send packet.
       retcode = sendto(client_s, out_buf, length, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
-
       if (retcode < 0)
       {
         printf("*** ERROR - sendto() failed \n");
@@ -275,6 +322,7 @@ int sendFile(char *fileName, char *destIpAddr, int destPortNum)
       }
     }
   } //End of main while loop
+
 
   //EOF reached. Send the last EOF character to close connection
   if(length == 0)
