@@ -31,7 +31,7 @@ double rand_val(void);      // LCG RNG using x_n = 7^5*x_(n-1)mod(2^31 - 1)
 //===========================================================================
 void main(void)
 {
-    int    printCount;          // Counter of printf completed
+    int    printCount;          // Count of printf completed
     double z;                   // Uniform random value 0 to 1
     int    i;                   // Loop counter
 
